@@ -4,8 +4,8 @@ import { extent } from "d3-array";
 import { Axes } from "../components/Axes";
 import { useMeasure } from "../components/useMeasure";
 import { points, annualMeans, type Dataset, type Metric, METRIC_LABEL } from "../lib/data";
-import { harmonicTrendFit } from "../lib/regression";
-import { trendStats } from "../lib/stats";
+import { harmonicFitByDoy, polyFit } from "../lib/regression";
+import { trendStats, blockBootstrapCI } from "../lib/stats";
 import { StatsReadout } from "../components/StatsReadout";
 import { EMBER, yearColorScale } from "../lib/colors";
 
@@ -29,20 +29,20 @@ export function TimeSeriesChart({ ds, metric, yearMin, yearMax, method, showSeas
     [ds, metric, yearMin, yearMax]
   );
 
-  // ONE joint fit: trend + 4 harmonics, fit simultaneously over all daily data.
-  const fit = useMemo(() => {
-    if (pts.length < 20) return null;
-    return harmonicTrendFit(
-      pts.map((p) => p.decyear), pts.map((p) => p.doy), pts.map((p) => p.v),
-      4, method === "linear" ? 1 : 2
-    );
-  }, [pts, method]);
-
-  // robust trend on the metric's annual means (consistent with the other tabs)
-  const robust = useMemo(() => {
-    const am = annualMeans(ds, metric).filter((d) => d.year >= yearMin && d.year <= yearMax);
-    return am.length >= 5 ? trendStats(am.map((d) => d.year), am.map((d) => d.mean)) : null;
-  }, [ds, metric, yearMin, yearMax]);
+  // Trend reported & drawn the SAME way as every other tab: robust stats on the
+  // metric's annual means, drawing the Theil–Sen line (linear) / OLS quadratic.
+  const am = useMemo(
+    () => annualMeans(ds, metric).filter((d) => d.year >= yearMin && d.year <= yearMax),
+    [ds, metric, yearMin, yearMax]
+  );
+  const robust = useMemo(() => (am.length >= 5 ? trendStats(am.map((d) => d.year), am.map((d) => d.mean)) : null), [am]);
+  const ciBand = useMemo(() => (am.length >= 5 ? blockBootstrapCI(am.map((d) => d.year), am.map((d) => d.mean)) : null), [am]);
+  const quadFit = useMemo(
+    () => (method === "quadratic" && am.length >= 3 ? polyFit(am.map((d) => d.year), am.map((d) => d.mean), 2) : null),
+    [am, method]
+  );
+  // pooled harmonic SHAPE for the seasonal overlay (rides the same trend)
+  const shapeFit = useMemo(() => (pts.length >= 20 ? harmonicFitByDoy(pts.map((p) => p.doy), pts.map((p) => p.v), 4) : null), [pts]);
 
   if (pts.length < 2) return <div ref={ref} className="text-ink/60 p-8">Not enough data.</div>;
 
@@ -51,18 +51,33 @@ export function TimeSeriesChart({ ds, metric, yearMin, yearMax, method, showSeas
   const y = scaleLinear().domain([ylo - 1, yhi + 1]).range([height - margin.bottom, margin.top]).nice();
   const color = yearColorScale(yearMin, yearMax);
 
-  // trend = deseasonalized trend component of the joint fit (unbiased by coverage)
-  const trendPts: string[] = [];
-  if (fit) for (let t = yearMin; t <= yearMax + 1; t += 0.05) trendPts.push(`${x(t)},${y(fit.trendOnly(t))}`);
-  const slopeDecade = fit ? fit.slopePerYear * 10 : undefined;
+  const trendAt = (t: number): number =>
+    method === "linear" && robust ? robust.senIntercept + robust.senSlope * t
+      : quadFit ? quadFit.predict(t) : NaN;
+  const haveTrend = (method === "linear" && robust) || quadFit;
 
-  // seasonal overlay = the full joint model (trend + harmonics) evaluated over time
+  const trendPts: string[] = [];
+  if (haveTrend) for (let t = yearMin; t <= yearMax + 1; t += 0.05) trendPts.push(`${x(t)},${y(trendAt(t))}`);
+
+  // seasonal overlay = pooled harmonic shape riding the SAME trend
   const seasonalPts: string[] = [];
-  if (fit && showSeasonal) {
+  if (shapeFit && haveTrend && showSeasonal) {
+    const meanShape = pts.reduce((s, p) => s + shapeFit.predict(p.doy), 0) / pts.length;
     for (let t = yearMin; t <= yearMax + 1; t += 0.01) {
       const doy = (t - Math.floor(t)) * 365.25 + 0.5;
-      seasonalPts.push(`${x(t)},${y(fit.predict(t, doy))}`);
+      seasonalPts.push(`${x(t)},${y(shapeFit.predict(doy) - meanShape + trendAt(t))}`);
     }
+  }
+
+  let bandPath = "";
+  if (ciBand && !Number.isNaN(ciBand[0])) {
+    const xm = am.reduce((s, d) => s + d.year, 0) / am.length;
+    const ym = am.reduce((s, d) => s + d.mean, 0) / am.length;
+    const at = (yr: number, slope: number) => ym + slope * (yr - xm);
+    bandPath = [
+      `${x(yearMin)},${y(at(yearMin, ciBand[0]))}`, `${x(yearMax + 1)},${y(at(yearMax + 1, ciBand[0]))}`,
+      `${x(yearMax + 1)},${y(at(yearMax + 1, ciBand[1]))}`, `${x(yearMin)},${y(at(yearMin, ciBand[1]))}`,
+    ].join(" ");
   }
 
   return (
@@ -73,16 +88,18 @@ export function TimeSeriesChart({ ds, metric, yearMin, yearMax, method, showSeas
           xFormat={(v) => `'${String(v).slice(2)}`}
           yFormat={(v) => `${v}°`} yLabel={`${METRIC_LABEL[metric]} (°C)`} xLabel="Every daily reading, 2002 → 2026" />
 
+        {bandPath && <polygon points={bandPath} fill={EMBER} opacity={0.12} />}
+
         {pts.map((p, i) => (
           <circle key={i} cx={x(p.decyear)} cy={y(p.v)} r={1.3}
             fill={color(p.year)} fillOpacity={0.5} />
         ))}
 
-        {fit && showSeasonal && (
+        {showSeasonal && seasonalPts.length > 0 && (
           <polyline points={seasonalPts.join(" ")} fill="none" stroke="#1d4e89" strokeWidth={1}
             opacity={0.7} />
         )}
-        {fit && (
+        {trendPts.length > 0 && (
           <polyline points={trendPts.join(" ")} fill="none" stroke={EMBER} strokeWidth={3}
             strokeLinecap="round" />
         )}
@@ -92,15 +109,13 @@ export function TimeSeriesChart({ ds, metric, yearMin, yearMax, method, showSeas
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-ink/70">
           <span>{pts.length.toLocaleString()} daily readings</span>
           <span className="inline-flex items-center gap-1.5">
-            <span style={{ background: EMBER, height: 4, width: 16, borderRadius: 2 }} /> {method} trend (deseasonalized)
+            <span style={{ background: EMBER, height: 4, width: 16, borderRadius: 2 }} />
+            {method === "linear" ? "Theil–Sen" : "OLS quadratic"} on annual means + 95% CI
           </span>
           {showSeasonal && (
             <span className="inline-flex items-center gap-1.5">
-              <span style={{ background: "#1d4e89", height: 2, width: 16 }} /> joint harmonic + trend fit
+              <span style={{ background: "#1d4e89", height: 2, width: 16 }} /> seasonal cycle riding the trend
             </span>
-          )}
-          {slopeDecade !== undefined && (
-            <span className="text-ink/50">joint-fit trend {slopeDecade >= 0 ? "+" : ""}{slopeDecade.toFixed(2)} °C/decade</span>
           )}
         </div>
         {robust && <StatsReadout s={robust} unit="°C" />}
