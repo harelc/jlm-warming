@@ -4,8 +4,10 @@ import { extent } from "d3-array";
 import { Axes } from "../components/Axes";
 import { useMeasure } from "../components/useMeasure";
 import { monthlyStats, type Dataset, type Metric, METRIC_LABEL, MONTH_NAMES } from "../lib/data";
-import { polyFit, formatP } from "../lib/regression";
+import { polyFit } from "../lib/regression";
+import { trendStats, blockBootstrapCI } from "../lib/stats";
 import { Term } from "../components/Term";
+import { StatsReadout } from "../components/StatsReadout";
 import { EMBER } from "../lib/colors";
 
 interface Props {
@@ -41,13 +43,21 @@ export function BoxplotChart({ ds, metric, month, yearMin, yearMax, method }: Pr
     [ds, metric, month, yearMin, yearMax]
   );
 
-  // regression on every daily reading (year repeated per day)
-  const fit = useMemo(() => {
-    const xs: number[] = [], ys: number[] = [];
-    for (const s of stats) for (const v of s.values) { xs.push(s.year); ys.push(v); }
-    if (xs.length < 5) return null;
-    return polyFit(xs, ys, method === "linear" ? 1 : 2);
-  }, [stats, method]);
+  // Trend on the per-year MEANS (same robust treatment as the Yearly-trend tab,
+  // so the reported numbers are clear and consistent across views).
+  const robust = useMemo(
+    () => (stats.length >= 5 ? trendStats(stats.map((s) => s.year), stats.map((s) => s.mean)) : null),
+    [stats]
+  );
+  const ciBand = useMemo(
+    () => (stats.length >= 5 ? blockBootstrapCI(stats.map((s) => s.year), stats.map((s) => s.mean)) : null),
+    [stats]
+  );
+  const quadFit = useMemo(
+    () => (method === "quadratic" && stats.length >= 3
+      ? polyFit(stats.map((s) => s.year), stats.map((s) => s.mean), 2) : null),
+    [stats, method]
+  );
 
   if (stats.length < 2) return <div ref={ref} className="text-ink/60 p-8">Not enough data.</div>;
 
@@ -57,9 +67,23 @@ export function BoxplotChart({ ds, metric, month, yearMin, yearMax, method }: Pr
   const y = scaleLinear().domain([ylo - 1, yhi + 1]).range([height - margin.bottom, margin.top]).nice();
   const bw = Math.min(18, (width - margin.left - margin.right) / (stats.length * 1.7));
 
+  // linear → Theil–Sen line; quadratic → OLS quadratic curve
   const fitPts: string[] = [];
-  if (fit) for (let yr = yearMin; yr <= yearMax; yr += 0.25) fitPts.push(`${x(yr)},${y(fit.predict(yr))}`);
-  const slopeDecade = fit?.slopePerYear !== undefined ? fit.slopePerYear * 10 : undefined;
+  if (method === "linear" && robust) {
+    for (const yr of [yearMin, yearMax]) fitPts.push(`${x(yr)},${y(robust.senIntercept + robust.senSlope * yr)}`);
+  } else if (quadFit) {
+    for (let yr = yearMin; yr <= yearMax; yr += 0.25) fitPts.push(`${x(yr)},${y(quadFit.predict(yr))}`);
+  }
+  let bandPath = "";
+  if (ciBand && !Number.isNaN(ciBand[0])) {
+    const xm = stats.reduce((s, d) => s + d.year, 0) / stats.length;
+    const ym = stats.reduce((s, d) => s + d.mean, 0) / stats.length;
+    const at = (yr: number, slope: number) => ym + slope * (yr - xm);
+    bandPath = [
+      `${x(yearMin)},${y(at(yearMin, ciBand[0]))}`, `${x(yearMax)},${y(at(yearMax, ciBand[0]))}`,
+      `${x(yearMax)},${y(at(yearMax, ciBand[1]))}`, `${x(yearMin)},${y(at(yearMin, ciBand[1]))}`,
+    ].join(" ");
+  }
 
   return (
     <div ref={ref} className="w-full">
@@ -67,6 +91,8 @@ export function BoxplotChart({ ds, metric, month, yearMin, yearMax, method }: Pr
         <Axes x={x} y={y} width={width} height={height} margin={margin}
           xTicks={stats.map((s) => s.year)} xFormat={(v) => String(v)} rotateX
           yFormat={(v) => `${v}°`} yLabel={`${METRIC_LABEL[metric]} (°C)`} />
+
+        {bandPath && <polygon points={bandPath} fill={EMBER} opacity={0.12} />}
 
         {stats.map((s) => {
           const w = whiskers(s);
@@ -87,29 +113,27 @@ export function BoxplotChart({ ds, metric, month, yearMin, yearMax, method }: Pr
           );
         })}
 
-        {fit && (
+        {fitPts.length > 0 && (
           <polyline points={fitPts.join(" ")} fill="none" stroke={EMBER} strokeWidth={3}
             strokeLinecap="round" />
         )}
       </svg>
 
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-1 text-xs text-ink/70">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-3 w-4 rounded-sm border border-[#2171b5] bg-[#9ecae1]" />
-          <Term name="iqr">IQR</Term> (25–75th pct of {METRIC_LABEL[metric].toLowerCase()} readings for {MONTH_NAMES[month]})
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span style={{ background: "#d62728" }} className="inline-block h-2 w-2 rotate-45" /> outlier day
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span style={{ background: EMBER, height: 4, width: 16, borderRadius: 2 }} /> {method} fit on daily readings
-        </span>
-        {slopeDecade !== undefined && (
-          <span className="font-mono text-ember font-semibold tnum">
-            {slopeDecade >= 0 ? "+" : ""}{slopeDecade.toFixed(2)} °C/decade
-            {fit?.pValue !== undefined && <span className="text-ink/50"> · p={formatP(fit.pValue)}</span>}
+      <div className="space-y-1 px-1">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-ink/70">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-3 w-4 rounded-sm border border-[#2171b5] bg-[#9ecae1]" />
+            <Term name="iqr">IQR</Term> (25–75th pct of {METRIC_LABEL[metric].toLowerCase()} readings for {MONTH_NAMES[month]})
           </span>
-        )}
+          <span className="inline-flex items-center gap-1.5">
+            <span style={{ background: "#d62728" }} className="inline-block h-2 w-2 rotate-45" /> outlier day
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span style={{ background: EMBER, height: 4, width: 16, borderRadius: 2 }} />
+            {method === "linear" ? "Theil–Sen line" : "OLS quadratic"} on yearly means + 95% CI
+          </span>
+        </div>
+        {robust && <StatsReadout s={robust} unit="°C" />}
       </div>
     </div>
   );

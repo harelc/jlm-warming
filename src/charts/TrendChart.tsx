@@ -53,8 +53,12 @@ export function TrendChart({ ds, metric, month, yearMin, yearMax, method }: Prop
   const line = (key: "mean" | "min" | "max") =>
     stats.map((s) => `${x(s.year)},${y(s[key])}`).join(" ");
 
+  // Linear → draw the Theil–Sen line (matches the robust slope we report).
+  // Quadratic → draw the OLS quadratic curve (no robust quadratic exists).
   const fitPts: string[] = [];
-  if (fit) {
+  if (method === "linear" && robust) {
+    for (const yr of [yearMin, yearMax]) fitPts.push(`${x(yr)},${y(robust.senIntercept + robust.senSlope * yr)}`);
+  } else if (fit) {
     for (let yr = yearMin; yr <= yearMax; yr += 0.25) fitPts.push(`${x(yr)},${y(fit.predict(yr))}`);
   }
   // 95% CI band around the linear trend (slopes pivoted at the series centroid)
@@ -94,8 +98,8 @@ export function TrendChart({ ds, metric, month, yearMin, yearMax, method }: Prop
           <circle key={s.year} cx={x(s.year)} cy={y(s.mean)} r={3.4} fill={INK} />
         ))}
 
-        {/* regression */}
-        {fit && (
+        {/* regression: Theil–Sen (linear) or OLS quadratic */}
+        {fitPts.length > 0 && (
           <polyline points={fitPts.join(" ")} fill="none" stroke={EMBER} strokeWidth={3}
             strokeLinecap="round" />
         )}
@@ -106,7 +110,7 @@ export function TrendChart({ ds, metric, month, yearMin, yearMax, method }: Prop
           <Legend swatch="#9b2226" label={`${MONTH_NAMES[month]} max`} />
           <Legend swatch={INK} label={`Yearly mean of ${METRIC_LABEL[metric].toLowerCase()}`} />
           <Legend swatch="#1d4e89" label={`${MONTH_NAMES[month]} min`} />
-          <Legend swatch={EMBER} label={`${method} fit + 95% CI`} thick />
+          <Legend swatch={EMBER} label={method === "linear" ? "Theil–Sen line + 95% CI" : "OLS quadratic + 95% CI"} thick />
         </div>
         {robust && <StatsReadout s={robust} unit="°C" />}
       </div>

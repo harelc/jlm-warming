@@ -25,7 +25,7 @@ const CHART_META: Record<ChartId, { name: string; blurb: ReactNode }> = {
   stripes: { name: "Warming stripes", blurb: <>One colored bar per year — hue is that year's <Term name="anomaly">anomaly</Term> from the 2002–2011 <Term name="climatology">baseline</Term>. Blue cooler, red warmer.</> },
   record: { name: "Full record", blurb: "Every daily reading on one continuous time axis — no folding. The rawest view of the archive." },
   trend: { name: "Yearly trend", blurb: <>Per-year mean/max/min for one month, with a regression line and a <Term name="bootstrap">bootstrap</Term> <Term name="ci">confidence band</Term>.</> },
-  distribution: { name: "Distribution", blurb: <>Per-year <Term name="iqr">boxplots</Term> of every daily reading in one month, with outliers.</> },
+  distribution: { name: "Distribution", blurb: <>Per-year <Term name="iqr">boxplots</Term> of every daily reading in one month; the trend line runs through the yearly means.</> },
   distshift: { name: "Distribution shift", blurb: "Early vs late period: the whole daily distribution sliding, not just the mean." },
   seasonal: { name: "Seasonal cycle", blurb: <>Daily readings folded onto day-of-year, with <Term name="harmonic">harmonic</Term> seasonal models — pooled or per-year.</> },
   anomaly: { name: "Anomaly", blurb: <><Term name="deseasonalized">Deseasonalized</Term>: each day minus the fitted seasonal cycle, leaving the signal versus time.</> },
