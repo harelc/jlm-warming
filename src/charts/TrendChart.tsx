@@ -107,9 +107,9 @@ export function TrendChart({ ds, metric, month, yearMin, yearMax, method }: Prop
 
       <div className="space-y-1 px-1">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-ink/70">
-          <Legend swatch="#9b2226" label={`${MONTH_NAMES[month]} max`} />
-          <Legend swatch={INK} label={`Yearly mean of ${METRIC_LABEL[metric].toLowerCase()}`} />
-          <Legend swatch="#1d4e89" label={`${MONTH_NAMES[month]} min`} />
+          <Legend swatch="#9b2226" label={`${MONTH_NAMES[month]} max (highest day)`} />
+          <Legend swatch={INK} label={`${MONTH_NAMES[month]} mean (month average)`} />
+          <Legend swatch="#1d4e89" label={`${MONTH_NAMES[month]} min (lowest day)`} />
           <Legend swatch={EMBER} label={method === "linear" ? "Theil–Sen line + 95% CI" : "OLS quadratic + 95% CI"} thick />
         </div>
         {robust && <StatsReadout s={robust} unit="°C" />}
