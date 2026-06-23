@@ -10,8 +10,8 @@ import { yearColorScale } from "../lib/colors";
 interface Props {
   ds: Dataset;
   metric: Metric;
-  yearMin: number;
-  yearMax: number;
+  selectedYears: Set<number>; // arbitrary subset of years to display
+  colorDomain: [number, number]; // global year range, so colors are stable
   mode: "pooled" | "peryear";
   K: number;
 }
@@ -19,12 +19,15 @@ interface Props {
 const MONTH_STARTS = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
 const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-export function SeasonalChart({ ds, metric, yearMin, yearMax, mode, K }: Props) {
+export function SeasonalChart({ ds, metric, selectedYears, colorDomain, mode, K }: Props) {
   const { ref, width } = useMeasure<HTMLDivElement>();
   const height = 480;
   const margin = { top: 20, right: 24, bottom: 48, left: 52 };
 
-  const pts = useMemo(() => points(ds, metric, { yearMin, yearMax }), [ds, metric, yearMin, yearMax]);
+  const pts = useMemo(
+    () => points(ds, metric).filter((p) => selectedYears.has(p.year)),
+    [ds, metric, selectedYears]
+  );
 
   const curves = useMemo(() => {
     if (pts.length < 10) return [];
@@ -32,7 +35,7 @@ export function SeasonalChart({ ds, metric, yearMin, yearMax, mode, K }: Props) 
       const fit = harmonicFitByDoy(pts.map((p) => p.doy), pts.map((p) => p.v), K);
       const path: [number, number][] = [];
       for (let d = 1; d <= 366; d += 1) path.push([d, fit.predict(d)]);
-      return [{ year: yearMax, path }];
+      return [{ year: colorDomain[1], path }];
     }
     // per-year independent fits
     const byYear = new Map<number, { doy: number[]; v: number[] }>();
@@ -51,17 +54,17 @@ export function SeasonalChart({ ds, metric, yearMin, yearMax, mode, K }: Props) 
       result.push({ year, path });
     }
     return result;
-  }, [pts, mode, K, yearMax]);
+  }, [pts, mode, K, colorDomain]);
 
-  if (pts.length < 2) return <div ref={ref} className="text-ink/60 p-8">Not enough data.</div>;
+  if (pts.length < 2) return <div ref={ref} className="text-ink/60 p-8">Select at least one year.</div>;
 
-  const single = yearMin === yearMax;
-  // Fix the y-domain to the full metric range across ALL years so stepping the
-  // focus year (or changing the range) keeps the axis stable and comparable.
+  const single = selectedYears.size === 1;
+  // Fix the y-domain to the full metric range across ALL years so changing the
+  // year selection keeps the axis stable and comparable.
   const [ylo, yhi] = extent(ds.daily[metric]) as [number, number];
   const x = scaleLinear().domain([1, 366]).range([margin.left, width - margin.right]);
   const y = scaleLinear().domain([ylo - 1, yhi + 1]).range([height - margin.bottom, margin.top]).nice();
-  const color = yearColorScale(yearMin, yearMax);
+  const color = yearColorScale(colorDomain[0], colorDomain[1]);
 
   return (
     <div ref={ref} className="w-full">
@@ -88,7 +91,7 @@ export function SeasonalChart({ ds, metric, yearMin, yearMax, mode, K }: Props) 
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-1 text-xs text-ink/70">
         {single ? (
-          <span>{pts.length.toLocaleString()} daily readings in {yearMin}, with its {K}-harmonic seasonal fit</span>
+          <span>{pts.length.toLocaleString()} daily readings in {[...selectedYears][0]}, with its {K}-harmonic seasonal fit</span>
         ) : (
           <>
             <span>{pts.length.toLocaleString()} readings, colored by year (blue = older → red = recent)</span>
