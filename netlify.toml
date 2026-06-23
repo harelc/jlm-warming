@@ -1,6 +1,12 @@
+# On Git-connected builds the command refreshes the data first, then builds:
+# update_data.mjs pulls newly-elapsed months from 02ws.co.il into daily.json.
 [build]
-  command = "npm run build"
+  command = "node scripts/update_data.mjs && npm run build"
   publish = "dist"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
 
 [[redirects]]
   from = "/*"
