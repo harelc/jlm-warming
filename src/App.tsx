@@ -29,7 +29,7 @@ const CHART_META: Record<ChartId, { name: string; blurb: ReactNode }> = {
   distribution: { name: "Distribution", blurb: <>Per-year <Term name="iqr">boxplots</Term> of every daily reading in one month; the trend line runs through the yearly means.</> },
   distshift: { name: "Distribution shift", blurb: "Early vs late period: the whole daily distribution sliding, not just the mean." },
   seasonal: { name: "Seasonal cycle", blurb: <>Daily readings folded onto day-of-year, with <Term name="harmonic">harmonic</Term> seasonal models — pooled or per-year.</> },
-  wheel: { name: "Year wheel", blurb: "The seasonal cycle wrapped onto a circle — months around the dial, temperature as radius. Early vs late period overlaid: red outside blue = warming." },
+  wheel: { name: "Year wheel", blurb: "The seasonal cycle wrapped onto a circle — months around the dial, temperature as radius. One loop per selected year (blue = older → red = recent); recent loops bulging outward = warming." },
   anomaly: { name: "Anomaly", blurb: <><Term name="deseasonalized">Deseasonalized</Term>: each day minus the fitted seasonal cycle, leaving the signal versus time.</> },
   indices: { name: "Climate indices", blurb: <>Per-year counts of hot days, tropical nights, heat spells, and the <Term name="dtr">diurnal range</Term> — what warming actually feels like.</> },
 };
@@ -136,7 +136,7 @@ export default function App() {
       distribution: `Jerusalem · ${MONTH_NAMES[month]} ${m}, per-year distribution · ${range}`,
       distshift: `Jerusalem · ${m} distribution · ${yMin}–${effSplit - 1} vs ${effSplit}–${yMax}`,
       seasonal: `Jerusalem · ${m} seasonal cycle · ${selectedYears.size} years selected`,
-      wheel: `Jerusalem · ${m} year wheel · ${range}`,
+      wheel: `Jerusalem · ${m} year wheel · ${selectedYears.size} years selected`,
       anomaly: `Jerusalem · ${m} deseasonalized anomaly · ${range}`,
       indices: `Jerusalem · ${idx} · ${range}`,
     };
@@ -145,7 +145,7 @@ export default function App() {
 
   const showMonth = chart === "trend" || chart === "distribution";
   const showRegression = chart === "trend" || chart === "distribution" || chart === "anomaly" || chart === "record";
-  const showRange = chart !== "seasonal";
+  const showRange = chart !== "seasonal" && chart !== "wheel";
 
   return (
     <div className="relative z-10 min-h-screen">
@@ -189,8 +189,8 @@ export default function App() {
           </div>
         )}
 
-        {/* year multi-select for the seasonal view */}
-        {chart === "seasonal" && (
+        {/* year multi-select for the seasonal & year-wheel views */}
+        {(chart === "seasonal" || chart === "wheel") && (
           <div className="mb-5 rounded-xl border border-ember/25 bg-ember/[0.06] p-3.5">
             <YearPills allYears={allYears} selected={selectedYears} onToggle={toggleYear}
               onAll={() => setSelectedYears(new Set(allYears))} onNone={() => setSelectedYears(new Set())}
@@ -289,7 +289,7 @@ export default function App() {
           {chart === "seasonal" && (
             <SeasonalChart ds={ds} metric={metric} selectedYears={selectedYears} colorDomain={colorDomain} mode={seasonalMode} K={K} />
           )}
-          {chart === "wheel" && <YearWheel ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} />}
+          {chart === "wheel" && <YearWheel ds={ds} metric={metric} selectedYears={selectedYears} colorDomain={colorDomain} />}
           {chart === "anomaly" && <AnomalyChart ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} method={method} />}
           {chart === "indices" && <IndicesChart ds={ds} indexId={indexId} yearMin={yMin} yearMax={yMax} />}
         </section>
