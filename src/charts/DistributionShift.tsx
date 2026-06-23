@@ -77,7 +77,7 @@ export function DistributionShift({ ds, metric, yearMin, yearMax, splitYear }: P
         <span className="font-mono font-semibold text-ember tnum">
           mean shift {model.meanL - model.meanE >= 0 ? "+" : ""}{(model.meanL - model.meanE).toFixed(2)} °C
         </span>
-        <span className="text-ink/50">whole-year daily {METRIC_LABEL[metric].toLowerCase()} distribution</span>
+        <span className="text-ink/50">whole-year {METRIC_LABEL[metric].toLowerCase()} distribution</span>
       </div>
     </div>
   );

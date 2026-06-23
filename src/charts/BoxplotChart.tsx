@@ -95,7 +95,7 @@ export function BoxplotChart({ ds, metric, month, yearMin, yearMax, method }: Pr
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-1 text-xs text-ink/70">
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block h-3 w-4 rounded-sm border border-[#2171b5] bg-[#9ecae1]" />
-          IQR (25–75th pct of daily {METRIC_LABEL[metric].toLowerCase()}s for {MONTH_NAMES[month]})
+          IQR (25–75th pct of {METRIC_LABEL[metric].toLowerCase()} readings for {MONTH_NAMES[month]})
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span style={{ background: "#d62728" }} className="inline-block h-2 w-2 rotate-45" /> outlier day
