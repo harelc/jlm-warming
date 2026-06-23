@@ -52,6 +52,8 @@ function readURL() {
     month: num("mo", 6),
     seasonalMode: (p.get("sm") as "pooled" | "peryear") || "peryear",
     K: num("k", 2),
+    smoother: (p.get("sw") as "harmonic" | "moving") || "harmonic",
+    win: num("win", 15),
     indexId: (p.get("ix") as IndexId) || "hotDays",
     y0: p.has("y0") ? num("y0", 0) : null,
     y1: p.has("y1") ? num("y1", 0) : null,
@@ -71,6 +73,8 @@ export default function App() {
   const [seasonalMode, setSeasonalMode] = useState<"pooled" | "peryear">(init.seasonalMode);
   const [selectedYears, setSelectedYears] = useState<Set<number>>(new Set());
   const [K, setK] = useState(init.K);
+  const [smoother, setSmoother] = useState<"harmonic" | "moving">(init.smoother);
+  const [win, setWin] = useState(init.win);
   const [indexId, setIndexId] = useState<IndexId>(init.indexId);
   const [seasonalOverlay, setSeasonalOverlay] = useState(true);
   const [yr, setYr] = useState<[number, number]>([init.y0 ?? 2002, init.y1 ?? 2026]);
@@ -113,6 +117,7 @@ export default function App() {
     const p = new URLSearchParams();
     p.set("c", chart); p.set("m", metric); p.set("r", method);
     p.set("mo", String(month)); p.set("sm", seasonalMode); p.set("k", String(K));
+    p.set("sw", smoother); p.set("win", String(win));
     p.set("ix", indexId); p.set("y0", String(yr[0])); p.set("y1", String(yr[1]));
     if (splitYear !== null) p.set("sp", String(splitYear));
     const url = `${location.origin}${location.pathname}?${p.toString()}`;
@@ -223,10 +228,19 @@ export default function App() {
             <>
               <Segmented label="Seasonal model" value={seasonalMode} onChange={setSeasonalMode}
                 options={[{ value: "pooled", label: "Pooled" }, { value: "peryear", label: "Per year" }]} />
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink/45">Harmonics: {K}</span>
-                <input type="range" min={1} max={6} value={K} onChange={(e) => setK(Number(e.target.value))} className="w-28" />
-              </div>
+              <Segmented label="Smoothing" value={smoother} onChange={setSmoother}
+                options={[{ value: "harmonic", label: "Harmonic" }, { value: "moving", label: "Moving avg" }]} />
+              {smoother === "harmonic" ? (
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink/45">Harmonics: {K}</span>
+                  <input type="range" min={1} max={8} value={K} onChange={(e) => setK(Number(e.target.value))} className="w-28" />
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink/45">Window: {win} days</span>
+                  <input type="range" min={3} max={61} step={2} value={win} onChange={(e) => setWin(Number(e.target.value))} className="w-32" />
+                </div>
+              )}
             </>
           )}
 
@@ -287,7 +301,7 @@ export default function App() {
           {chart === "distribution" && <BoxplotChart ds={ds} metric={metric} month={month} yearMin={yMin} yearMax={yMax} method={method} />}
           {chart === "distshift" && <DistributionShift ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} splitYear={effSplit} />}
           {chart === "seasonal" && (
-            <SeasonalChart ds={ds} metric={metric} selectedYears={selectedYears} colorDomain={colorDomain} mode={seasonalMode} K={K} />
+            <SeasonalChart ds={ds} metric={metric} selectedYears={selectedYears} colorDomain={colorDomain} mode={seasonalMode} smoother={smoother} K={K} window={win} />
           )}
           {chart === "wheel" && <YearWheel ds={ds} metric={metric} selectedYears={selectedYears} colorDomain={colorDomain} />}
           {chart === "anomaly" && <AnomalyChart ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} method={method} />}
