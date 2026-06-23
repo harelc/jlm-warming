@@ -56,7 +56,9 @@ export function SeasonalChart({ ds, metric, yearMin, yearMax, mode, K }: Props) 
   if (pts.length < 2) return <div ref={ref} className="text-ink/60 p-8">Not enough data.</div>;
 
   const single = yearMin === yearMax;
-  const [ylo, yhi] = extent(pts, (p) => p.v) as [number, number];
+  // Fix the y-domain to the full metric range across ALL years so stepping the
+  // focus year (or changing the range) keeps the axis stable and comparable.
+  const [ylo, yhi] = extent(ds.daily[metric]) as [number, number];
   const x = scaleLinear().domain([1, 366]).range([margin.left, width - margin.right]);
   const y = scaleLinear().domain([ylo - 1, yhi + 1]).range([height - margin.bottom, margin.top]).nice();
   const color = yearColorScale(yearMin, yearMax);
