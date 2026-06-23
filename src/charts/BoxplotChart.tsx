@@ -75,9 +75,9 @@ export function BoxplotChart({ ds, metric, month, yearMin, yearMax, method }: Pr
     for (let yr = yearMin; yr <= yearMax; yr += 0.25) fitPts.push(`${x(yr)},${y(quadFit.predict(yr))}`);
   }
   let bandPath = "";
-  if (ciBand && !Number.isNaN(ciBand[0])) {
+  if (ciBand && robust && !Number.isNaN(ciBand[0])) {
     const xm = stats.reduce((s, d) => s + d.year, 0) / stats.length;
-    const ym = stats.reduce((s, d) => s + d.mean, 0) / stats.length;
+    const ym = robust.senIntercept + robust.senSlope * xm; // pivot on the Sen line
     const at = (yr: number, slope: number) => ym + slope * (yr - xm);
     bandPath = [
       `${x(yearMin)},${y(at(yearMin, ciBand[0]))}`, `${x(yearMax)},${y(at(yearMax, ciBand[0]))}`,

@@ -63,9 +63,9 @@ export function TrendChart({ ds, metric, month, yearMin, yearMax, method }: Prop
   }
   // 95% CI band around the linear trend (slopes pivoted at the series centroid)
   let bandPath = "";
-  if (ciBand && !Number.isNaN(ciBand[0])) {
+  if (ciBand && robust && !Number.isNaN(ciBand[0])) {
     const xm = stats.reduce((s, d) => s + d.year, 0) / stats.length;
-    const ym = stats.reduce((s, d) => s + d.mean, 0) / stats.length;
+    const ym = robust.senIntercept + robust.senSlope * xm; // pivot on the Sen line
     const at = (yr: number, slope: number) => ym + slope * (yr - xm);
     bandPath = [
       `${x(yearMin)},${y(at(yearMin, ciBand[0]))}`, `${x(yearMax)},${y(at(yearMax, ciBand[0]))}`,

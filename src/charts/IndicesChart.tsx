@@ -52,11 +52,12 @@ export function IndicesChart({ ds, indexId, yearMin, yearMax }: Props) {
   const y = scaleLinear().domain([Math.min(0, vlo), vhi * 1.1]).range([height - margin.bottom, margin.top]).nice();
   const bw = Math.min(20, (width - margin.left - margin.right) / (series.length * 1.5));
 
-  // build CI band polygon (between slope-lo and slope-hi lines through the Sen anchor)
+  // CI band: bowtie pivoted ON the Theil–Sen line (so the line is its axis and
+  // stays inside — the Sen slope is by definition within its own CI).
   let bandPath = "";
   if (band && !Number.isNaN(band.ci[0])) {
     const xm = series.reduce((s, d) => s + d.year, 0) / series.length;
-    const ym = series.reduce((s, d) => s + d.value, 0) / series.length;
+    const ym = band.sen.intercept + band.sen.slope * xm;
     const at = (yr: number, slope: number) => ym + slope * (yr - xm);
     const xa = yearMin, xb = yearMax;
     bandPath = [

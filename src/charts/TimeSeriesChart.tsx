@@ -70,9 +70,9 @@ export function TimeSeriesChart({ ds, metric, yearMin, yearMax, method, showSeas
   }
 
   let bandPath = "";
-  if (ciBand && !Number.isNaN(ciBand[0])) {
+  if (ciBand && robust && !Number.isNaN(ciBand[0])) {
     const xm = am.reduce((s, d) => s + d.year, 0) / am.length;
-    const ym = am.reduce((s, d) => s + d.mean, 0) / am.length;
+    const ym = robust.senIntercept + robust.senSlope * xm; // pivot on the Sen line
     const at = (yr: number, slope: number) => ym + slope * (yr - xm);
     bandPath = [
       `${x(yearMin)},${y(at(yearMin, ciBand[0]))}`, `${x(yearMax + 1)},${y(at(yearMax + 1, ciBand[0]))}`,

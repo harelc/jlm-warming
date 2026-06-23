@@ -77,9 +77,9 @@ export function AnomalyChart({ ds, metric, yearMin, yearMax, method }: Props) {
     for (let yr = yearMin; yr <= yearMax; yr += 0.25) trendPts.push(`${x(yr + 0.5)},${y(quadFit.predict(yr + 0.5))}`);
   }
   let bandPath = "";
-  if (ciBand && !Number.isNaN(ciBand[0])) {
+  if (ciBand && robust && !Number.isNaN(ciBand[0])) {
     const xm = annual.reduce((s, d) => s + d.year, 0) / annual.length + 0.5;
-    const ym = annual.reduce((s, d) => s + d.a, 0) / annual.length;
+    const ym = robust.senIntercept + robust.senSlope * xm; // pivot on the Sen line
     const at = (yr: number, slope: number) => ym + slope * (yr - xm);
     bandPath = [
       `${x(yearMin + 0.5)},${y(at(yearMin + 0.5, ciBand[0]))}`, `${x(yearMax + 0.5)},${y(at(yearMax + 0.5, ciBand[0]))}`,
