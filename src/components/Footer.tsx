@@ -25,7 +25,7 @@ export function Footer() {
             <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink/45">
               Data collected &amp; published by
             </div>
-            <a href="https://www.02ws.co.il/ChooseMonthYear" target="_blank" rel="noopener noreferrer"
+            <a href="https://www.02ws.co.il" target="_blank" rel="noopener noreferrer"
               className="group inline-flex items-baseline gap-2">
               <span className="font-heb text-2xl font-black text-ember">ירושמיים</span>
               <span className="font-display text-lg text-ink group-hover:underline">02ws.co.il</span>

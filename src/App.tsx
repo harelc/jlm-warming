@@ -68,7 +68,7 @@ export default function App() {
         </p>
         <p className="rise mt-3 text-sm text-ink/60" style={{ animationDelay: "0.18s" }}>
           Measurements by the{" "}
-          <a href="https://www.02ws.co.il/ChooseMonthYear" target="_blank" rel="noopener noreferrer"
+          <a href="https://www.02ws.co.il" target="_blank" rel="noopener noreferrer"
             className="font-heb font-bold text-ember hover:underline">ירושמיים</a>{" "}
           (<a href="https://www.02ws.co.il" target="_blank" rel="noopener noreferrer" className="font-semibold text-ink hover:underline">02ws.co.il</a>) weather station.
         </p>
