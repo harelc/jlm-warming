@@ -33,8 +33,10 @@ export function exportSvgPng(svg: SVGSVGElement, filename: string, caption = "")
     ctx.stroke();
     ctx.textBaseline = "middle";
     const ty = h + strip / 2 + 4;
-    // credit (always shown, right-aligned) takes priority
-    const credit = "jlm-warming.netlify.app  ·  Data: ירושמיים / 02ws.co.il";
+    // credit (always shown, right-aligned) takes priority. Hebrew goes LAST and
+    // is wrapped in directional isolates (FSI…PDI) so its RTL run can't reorder
+    // the Latin text / digits around it (keeps "02ws.co.il" intact).
+    const credit = "jlm-warming.netlify.app  ·  Data: 02ws.co.il / ⁨ירושמיים⁩";
     ctx.font = "12px Archivo, system-ui, sans-serif";
     const creditW = ctx.measureText(credit).width;
     // caption (left), truncated so it never collides with the credit

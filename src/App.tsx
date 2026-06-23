@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { loadDataset, years, type Dataset, type Metric } from "./lib/data";
+import { loadDataset, years, MONTH_NAMES, METRIC_LABEL, type Dataset, type Metric } from "./lib/data";
 import { Segmented } from "./components/Segmented";
 import { MonthPills } from "./components/MonthPills";
 import { YearPills } from "./components/YearPills";
@@ -117,12 +117,21 @@ export default function App() {
   const doExport = () => {
     const svg = cardRef.current?.querySelector("svg");
     if (!svg) return;
-    const metricLabel = METRIC_OPTS.find((o) => o.value === metric)?.label ?? metric;
-    const idxLabel = INDEX_DEFS.find((d) => d.id === indexId)?.label ?? "";
-    const caption = chart === "indices"
-      ? `Jerusalem · ${idxLabel}`
-      : `Jerusalem · ${CHART_META[chart].name} · ${metricLabel}`;
-    exportSvgPng(svg as SVGSVGElement, `jlm-${chart}-${metric}.png`, caption);
+    const m = METRIC_LABEL[metric].toLowerCase();      // e.g. "daily maximum"
+    const idx = INDEX_DEFS.find((d) => d.id === indexId)?.label ?? "";
+    const range = `${yMin}–${yMax}`;
+    // self-describing caption per view
+    const captions: Record<ChartId, string> = {
+      stripes: `Jerusalem · ${m} annual anomaly vs ${baseline[0]}–${baseline[1]} · ${range}`,
+      record: `Jerusalem · ${m}, every daily reading · ${range}`,
+      trend: `Jerusalem · ${MONTH_NAMES[month]} ${m}, yearly trend · ${range}`,
+      distribution: `Jerusalem · ${MONTH_NAMES[month]} ${m}, per-year distribution · ${range}`,
+      distshift: `Jerusalem · ${m} distribution · ${yMin}–${effSplit - 1} vs ${effSplit}–${yMax}`,
+      seasonal: `Jerusalem · ${m} seasonal cycle · ${selectedYears.size} years selected`,
+      anomaly: `Jerusalem · ${m} deseasonalized anomaly · ${range}`,
+      indices: `Jerusalem · ${idx} · ${range}`,
+    };
+    exportSvgPng(svg as SVGSVGElement, `jlm-${chart}-${metric}.png`, captions[chart]);
   };
 
   const showMonth = chart === "trend" || chart === "distribution";
