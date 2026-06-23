@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { loadDataset, years, MONTH_NAMES, type Dataset, type Metric } from "./lib/data";
+import { loadDataset, years, type Dataset, type Metric } from "./lib/data";
 import { Segmented } from "./components/Segmented";
+import { MonthPills } from "./components/MonthPills";
 import { Footer } from "./components/Footer";
 import { TrendChart } from "./charts/TrendChart";
 import { BoxplotChart } from "./charts/BoxplotChart";
@@ -89,6 +90,13 @@ export default function App() {
       </nav>
 
       <main className="mx-auto max-w-6xl px-5 py-7">
+        {/* prominent month picker for the month-dependent views */}
+        {(chart === "trend" || chart === "distribution") && (
+          <div className="mb-5 rounded-xl border border-ember/25 bg-ember/[0.06] p-3.5">
+            <MonthPills value={month} onChange={setMonth} />
+          </div>
+        )}
+
         {/* ---------- controls ---------- */}
         <div className="mb-5 flex flex-wrap items-end gap-x-7 gap-y-4">
           <Segmented label="Metric" value={metric} onChange={setMetric}
@@ -97,16 +105,6 @@ export default function App() {
               { value: "high", label: "Daily max" },
               { value: "low", label: "Daily min" },
             ]} />
-
-          {(chart === "trend" || chart === "distribution") && (
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink/45">Month</span>
-              <select value={month} onChange={(e) => setMonth(Number(e.target.value))}
-                className="rounded-lg border border-ink/15 bg-paper/60 px-3 py-1.5 text-sm font-medium text-ink shadow-sm">
-                {MONTH_NAMES.slice(1).map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-              </select>
-            </div>
-          )}
 
           {(chart === "trend" || chart === "distribution" || chart === "anomaly" || chart === "record") && (
             <Segmented label="Regression" value={method} onChange={setMethod}
