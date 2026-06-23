@@ -21,7 +21,7 @@ export const GLOSSARY: Record<string, GlossEntry> = {
   },
   ci: {
     title: "95% confidence interval",
-    body: "The plausible range for the true slope. Computed by a moving-block bootstrap that resamples chunks of years, so it respects that consecutive years aren't independent.",
+    body: "The plausible range for the Theil–Sen slope, from a moving-block bootstrap that resamples chunks of years (refitting Theil–Sen each time) so it respects that consecutive years aren't independent.",
   },
   bootstrap: {
     title: "Moving-block bootstrap",

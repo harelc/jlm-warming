@@ -74,11 +74,12 @@ export function blockBootstrapCI(
 ): [number, number] {
   const n = x.length;
   if (n < 5) return [NaN, NaN];
-  const { slope, intercept } = olsSlope(x, y);
+  // CI for the Theil–Sen slope: bootstrap residuals around the Sen line and
+  // refit Theil–Sen on each resample (so the interval matches the headline).
+  const { slope, intercept } = theilSen(x, y);
   const fitted = x.map((xi) => intercept + slope * xi);
   const resid = y.map((yi, i) => yi - fitted[i]);
   const L = Math.max(2, Math.round(Math.pow(n, 1 / 3)));
-  const nBlocks = Math.ceil(n / L);
 
   let s = seed;
   const rand = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
@@ -91,8 +92,7 @@ export function blockBootstrapCI(
       for (let k = 0; k < L && res.length < n; k++) res.push(resid[(start + k) % n]);
     }
     const yb = fitted.map((f, i) => f + res[i]);
-    slopes.push(olsSlope(x, yb).slope);
-    void nBlocks;
+    slopes.push(theilSen(x, yb).slope);
   }
   slopes.sort((p, q) => p - q);
   const lo = slopes[Math.floor(0.025 * B)];
