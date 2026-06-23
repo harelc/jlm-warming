@@ -1,49 +1,97 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { loadDataset, years, type Dataset, type Metric } from "./lib/data";
 import { Segmented } from "./components/Segmented";
 import { MonthPills } from "./components/MonthPills";
 import { YearPills } from "./components/YearPills";
 import { Footer } from "./components/Footer";
 import { yearColorScale } from "./lib/colors";
+import { INDEX_DEFS, type IndexId } from "./lib/indices";
+import { exportSvgPng } from "./lib/exportPng";
 import { TrendChart } from "./charts/TrendChart";
 import { BoxplotChart } from "./charts/BoxplotChart";
 import { SeasonalChart } from "./charts/SeasonalChart";
 import { AnomalyChart } from "./charts/AnomalyChart";
 import { TimeSeriesChart } from "./charts/TimeSeriesChart";
+import { WarmingStripes } from "./charts/WarmingStripes";
+import { IndicesChart } from "./charts/IndicesChart";
+import { DistributionShift } from "./charts/DistributionShift";
 
-type ChartId = "record" | "trend" | "distribution" | "seasonal" | "anomaly";
+type ChartId =
+  | "stripes" | "record" | "trend" | "distribution" | "distshift"
+  | "seasonal" | "anomaly" | "indices";
 
 const CHART_META: Record<ChartId, { name: string; blurb: string }> = {
-  record: { name: "Full record", blurb: "Every daily reading on one continuous time axis — no folding by month or year. The rawest view of the archive." },
-  trend: { name: "Yearly trend", blurb: "Per-year mean, max and min for one calendar month, with a regression line through the yearly means." },
-  distribution: { name: "Distribution", blurb: "Per-year boxplots of every daily reading in one month. The regression runs on all daily points." },
-  seasonal: { name: "Seasonal cycle", blurb: "Daily readings folded onto day-of-year, with harmonic seasonal models — pooled, or fit independently per year." },
-  anomaly: { name: "Anomaly", blurb: "Deseasonalized: each day minus the fitted seasonal cycle, leaving the warming signal versus time." },
+  stripes: { name: "Warming stripes", blurb: "One colored bar per year — hue is that year's anomaly from the 2002–2011 baseline. Blue cooler, red warmer." },
+  record: { name: "Full record", blurb: "Every daily reading on one continuous time axis — no folding. The rawest view of the archive." },
+  trend: { name: "Yearly trend", blurb: "Per-year mean/max/min for one month, with a regression line and a bootstrap confidence band." },
+  distribution: { name: "Distribution", blurb: "Per-year boxplots of every daily reading in one month, with outliers." },
+  distshift: { name: "Distribution shift", blurb: "Early vs late period: the whole daily distribution sliding, not just the mean." },
+  seasonal: { name: "Seasonal cycle", blurb: "Daily readings folded onto day-of-year, with harmonic seasonal models — pooled or per-year." },
+  anomaly: { name: "Anomaly", blurb: "Deseasonalized: each day minus the fitted seasonal cycle, leaving the signal versus time." },
+  indices: { name: "Climate indices", blurb: "Per-year counts of hot days, tropical nights, heat spells, and the diurnal range — what warming actually feels like." },
 };
+
+const METRIC_OPTS = [
+  { value: "mean" as Metric, label: "Mean" },
+  { value: "high" as Metric, label: "Daily max" },
+  { value: "low" as Metric, label: "Daily min" },
+  { value: "dtr" as Metric, label: "Range (max−min)" },
+];
+
+// --- URL state (shareable views) ---
+function readURL() {
+  const p = new URLSearchParams(location.search);
+  const num = (k: string, d: number) => (p.has(k) ? Number(p.get(k)) : d);
+  return {
+    chart: (p.get("c") as ChartId) || "stripes",
+    metric: (p.get("m") as Metric) || "mean",
+    method: (p.get("r") as "linear" | "quadratic") || "linear",
+    month: num("mo", 6),
+    seasonalMode: (p.get("sm") as "pooled" | "peryear") || "peryear",
+    K: num("k", 2),
+    indexId: (p.get("ix") as IndexId) || "hotDays",
+    y0: p.has("y0") ? num("y0", 0) : null,
+    y1: p.has("y1") ? num("y1", 0) : null,
+  };
+}
 
 export default function App() {
   const [ds, setDs] = useState<Dataset | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const init = readURL();
 
-  const [chart, setChart] = useState<ChartId>("record");
-  const [metric, setMetric] = useState<Metric>("mean");
-  const [method, setMethod] = useState<"linear" | "quadratic">("linear");
-  const [month, setMonth] = useState(6);
-  const [seasonalMode, setSeasonalMode] = useState<"pooled" | "peryear">("peryear");
+  const [chart, setChart] = useState<ChartId>(init.chart in CHART_META ? init.chart : "stripes");
+  const [metric, setMetric] = useState<Metric>(init.metric);
+  const [method, setMethod] = useState<"linear" | "quadratic">(init.method);
+  const [month, setMonth] = useState(init.month);
+  const [seasonalMode, setSeasonalMode] = useState<"pooled" | "peryear">(init.seasonalMode);
   const [selectedYears, setSelectedYears] = useState<Set<number>>(new Set());
-  const [K, setK] = useState(2);
+  const [K, setK] = useState(init.K);
+  const [indexId, setIndexId] = useState<IndexId>(init.indexId);
   const [seasonalOverlay, setSeasonalOverlay] = useState(true);
-  const [yr, setYr] = useState<[number, number]>([2002, 2026]);
+  const [yr, setYr] = useState<[number, number]>([init.y0 ?? 2002, init.y1 ?? 2026]);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadDataset()
       .then((d) => {
         setDs(d);
-        setYr([d.meta.year_min, d.meta.year_max]);
+        const lo = init.y0 ?? d.meta.year_min, hi = init.y1 ?? d.meta.year_max;
+        setYr([lo, hi]);
         setSelectedYears(new Set(years(d)));
       })
       .catch((e) => setErr(String(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // keep the URL in sync for sharing
+  useEffect(() => {
+    const p = new URLSearchParams();
+    p.set("c", chart); p.set("m", metric); p.set("r", method);
+    p.set("mo", String(month)); p.set("sm", seasonalMode); p.set("k", String(K));
+    p.set("ix", indexId); p.set("y0", String(yr[0])); p.set("y1", String(yr[1]));
+    history.replaceState(null, "", `?${p.toString()}`);
+  }, [chart, metric, method, month, seasonalMode, K, indexId, yr]);
 
   if (err) return <Centered>Couldn't load data: {err}</Centered>;
   if (!ds) return <Centered>Loading the archive…</Centered>;
@@ -52,6 +100,7 @@ export default function App() {
   const [yMin, yMax] = yr;
   const colorDomain: [number, number] = [allYears[0], allYears[allYears.length - 1]];
   const colorScale = yearColorScale(colorDomain[0], colorDomain[1]);
+  const baseline: [number, number] = [allYears[0], allYears[Math.min(9, allYears.length - 1)]];
 
   const toggleYear = (y: number) => {
     setSelectedYears((prev) => {
@@ -61,12 +110,21 @@ export default function App() {
     });
   };
 
+  const doExport = () => {
+    const svg = cardRef.current?.querySelector("svg");
+    if (svg) exportSvgPng(svg as SVGSVGElement, `jlm-${chart}-${metric}.png`);
+  };
+
+  const showMonth = chart === "trend" || chart === "distribution";
+  const showRegression = chart === "trend" || chart === "distribution" || chart === "anomaly" || chart === "record";
+  const showRange = chart !== "seasonal";
+
   return (
     <div className="relative z-10 min-h-screen">
       {/* ---------- header ---------- */}
       <header className="mx-auto max-w-6xl px-5 pt-12 pb-6">
         <div className="rise text-[11px] font-semibold uppercase tracking-[0.28em] text-ember">
-          Jerusalem · 2002 – 2026 · {ds.meta.n_obs.toLocaleString()} daily readings
+          Jerusalem · {ds.meta.year_min}–{ds.meta.year_max} · {ds.meta.n_obs.toLocaleString()} daily readings
         </div>
         <h1 className="rise font-display text-5xl font-black leading-[0.95] tracking-tight text-ink sm:text-7xl"
           style={{ animationDelay: "0.05s" }}>
@@ -74,7 +132,7 @@ export default function App() {
         </h1>
         <p className="rise mt-5 max-w-2xl font-display text-lg italic text-ink/70" style={{ animationDelay: "0.12s" }}>
           A quarter-century of rooftop temperature measurements, sliced every way I could think of —
-          switch the metric, the month, the years, and the regression method, and decide for yourself.
+          switch the metric, the month, the years, and the method, and decide for yourself.
         </p>
         <p className="rise mt-3 text-sm text-ink/60" style={{ animationDelay: "0.18s" }}>
           Measurements by the{" "}
@@ -89,7 +147,7 @@ export default function App() {
         <div className="mx-auto flex max-w-6xl flex-wrap gap-1 px-5 py-2">
           {(Object.keys(CHART_META) as ChartId[]).map((id) => (
             <button key={id} onClick={() => setChart(id)}
-              className={`rounded-md px-3.5 py-2 text-sm font-semibold transition-all ${
+              className={`rounded-md px-3 py-2 text-sm font-semibold transition-all ${
                 chart === id ? "bg-ember text-white shadow" : "text-ink/60 hover:bg-ink/5 hover:text-ink"
               }`}>
               {CHART_META[id].name}
@@ -100,7 +158,7 @@ export default function App() {
 
       <main className="mx-auto max-w-6xl px-5 py-7">
         {/* prominent month picker for the month-dependent views */}
-        {(chart === "trend" || chart === "distribution") && (
+        {showMonth && (
           <div className="mb-5 rounded-xl border border-ember/25 bg-ember/[0.06] p-3.5">
             <MonthPills value={month} onChange={setMonth} />
           </div>
@@ -117,14 +175,21 @@ export default function App() {
 
         {/* ---------- controls ---------- */}
         <div className="mb-5 flex flex-wrap items-end gap-x-7 gap-y-4">
-          <Segmented label="Metric" value={metric} onChange={setMetric}
-            options={[
-              { value: "mean", label: "Mean temp" },
-              { value: "high", label: "Daily max" },
-              { value: "low", label: "Daily min" },
-            ]} />
+          {chart !== "indices" && (
+            <Segmented label="Metric" value={metric} onChange={setMetric} options={METRIC_OPTS} />
+          )}
 
-          {(chart === "trend" || chart === "distribution" || chart === "anomaly" || chart === "record") && (
+          {chart === "indices" && (
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink/45">Index</span>
+              <select value={indexId} onChange={(e) => setIndexId(e.target.value as IndexId)}
+                className="rounded-lg border border-ink/15 bg-paper/60 px-3 py-1.5 text-sm font-medium text-ink shadow-sm">
+                {INDEX_DEFS.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
+              </select>
+            </div>
+          )}
+
+          {showRegression && (
             <Segmented label="Regression" value={method} onChange={setMethod}
               options={[{ value: "linear", label: "Linear" }, { value: "quadratic", label: "Quadratic" }]} />
           )}
@@ -134,11 +199,8 @@ export default function App() {
               <Segmented label="Seasonal model" value={seasonalMode} onChange={setSeasonalMode}
                 options={[{ value: "pooled", label: "Pooled" }, { value: "peryear", label: "Per year" }]} />
               <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink/45">
-                  Harmonics: {K}
-                </span>
-                <input type="range" min={1} max={6} value={K} onChange={(e) => setK(Number(e.target.value))}
-                  className="w-28" />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink/45">Harmonics: {K}</span>
+                <input type="range" min={1} max={6} value={K} onChange={(e) => setK(Number(e.target.value))} className="w-28" />
               </div>
             </>
           )}
@@ -151,41 +213,58 @@ export default function App() {
             </label>
           )}
 
-          {/* year range — seasonal view uses the year multi-select above instead */}
-          <div className={`flex flex-col gap-1 ${chart === "seasonal" ? "hidden" : ""}`}>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink/45">
-              Years: <span className="font-mono text-ink/70">{yMin}–{yMax}</span>
-            </span>
-            <div className="flex items-center gap-2">
-              <input type="range" min={allYears[0]} max={allYears[allYears.length - 1]} value={yMin}
-                onChange={(e) => setYr([Math.min(Number(e.target.value), yMax), yMax])} className="w-24" />
-              <input type="range" min={allYears[0]} max={allYears[allYears.length - 1]} value={yMax}
-                onChange={(e) => setYr([yMin, Math.max(Number(e.target.value), yMin)])} className="w-24" />
+          {showRange && (
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink/45">
+                Years: <span className="font-mono text-ink/70">{yMin}–{yMax}</span>
+              </span>
+              <div className="flex items-center gap-2">
+                <input type="range" min={allYears[0]} max={allYears[allYears.length - 1]} value={yMin}
+                  onChange={(e) => setYr([Math.min(Number(e.target.value), yMax), yMax])} className="w-24" />
+                <input type="range" min={allYears[0]} max={allYears[allYears.length - 1]} value={yMax}
+                  onChange={(e) => setYr([yMin, Math.max(Number(e.target.value), yMin)])} className="w-24" />
+              </div>
             </div>
-          </div>
+          )}
+
+          <button onClick={doExport}
+            className="ml-auto self-end rounded-lg border border-ink/15 bg-paper/60 px-3 py-1.5 text-sm font-semibold text-ink/70 shadow-sm transition hover:bg-ink/5 hover:text-ink">
+            ↓ PNG
+          </button>
         </div>
 
         {/* ---------- chart card ---------- */}
-        <section className="rounded-2xl border border-ink/12 bg-paper/70 p-5 shadow-[0_2px_30px_-12px_rgba(28,21,15,0.3)]">
+        <section ref={cardRef} className="rounded-2xl border border-ink/12 bg-paper/70 p-5 shadow-[0_2px_30px_-12px_rgba(28,21,15,0.3)]">
           <div className="mb-3">
             <h2 className="font-display text-2xl font-bold text-ink">{CHART_META[chart].name}</h2>
             <p className="text-sm text-ink/60">{CHART_META[chart].blurb}</p>
           </div>
 
+          {chart === "stripes" && <WarmingStripes ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} baseline={baseline} />}
           {chart === "record" && <TimeSeriesChart ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} method={method} showSeasonal={seasonalOverlay} />}
           {chart === "trend" && <TrendChart ds={ds} metric={metric} month={month} yearMin={yMin} yearMax={yMax} method={method} />}
           {chart === "distribution" && <BoxplotChart ds={ds} metric={metric} month={month} yearMin={yMin} yearMax={yMax} method={method} />}
+          {chart === "distshift" && <DistributionShift ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} />}
           {chart === "seasonal" && (
-            <SeasonalChart ds={ds} metric={metric} selectedYears={selectedYears}
-              colorDomain={colorDomain} mode={seasonalMode} K={K} />
+            <SeasonalChart ds={ds} metric={metric} selectedYears={selectedYears} colorDomain={colorDomain} mode={seasonalMode} K={K} />
           )}
           {chart === "anomaly" && <AnomalyChart ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} method={method} />}
+          {chart === "indices" && <IndicesChart ds={ds} indexId={indexId} yearMin={yMin} yearMax={yMax} />}
         </section>
 
-        <p className="mt-4 text-xs leading-relaxed text-ink/45">
-          Note: p-values treat daily readings as independent; daily autocorrelation makes them optimistic —
-          trust the slope, treat the interval as a floor. 2026 is a partial year. {ds.meta.note}
-        </p>
+        {/* ---------- honest caveats ---------- */}
+        <details className="mt-5 rounded-xl border border-ink/12 bg-paper/50 px-4 py-3 text-sm text-ink/70">
+          <summary className="cursor-pointer font-display text-base font-bold text-ink">
+            What this can — and can't — tell you
+          </summary>
+          <ul className="mt-3 list-disc space-y-2 pl-5 leading-relaxed">
+            <li><b>One station, one rooftop.</b> This is a single private sensor in central Jerusalem, not a regional average. Some of the warming is genuine climate signal; some is plausibly <b>urban heat island</b> as the city built up around it.</li>
+            <li><b>Inhomogeneities.</b> Instrument swaps, recalibration or a sensor move can create artificial step-changes. The "step change" flag (Pettitt test) hints at these, but can't separate a real shift from an equipment one.</li>
+            <li><b>Autocorrelation.</b> Consecutive days are correlated, so naive p-values are over-confident. The headline numbers use <b>Theil–Sen slopes, Mann–Kendall tests, and a moving-block bootstrap CI</b> on yearly values to be honest about uncertainty.</li>
+            <li><b>Short record &amp; a partial year.</b> {ds.meta.year_max - ds.meta.year_min}&nbsp;years is short for climate trends, and {ds.meta.year_max} is still in progress. {ds.meta.note}</li>
+            <li><b>Data credit.</b> Every measurement was collected and published by the <a href="https://www.02ws.co.il" target="_blank" rel="noopener noreferrer" className="font-heb font-bold text-ember hover:underline">ירושמיים</a> station — this site only visualizes it.</li>
+          </ul>
+        </details>
       </main>
 
       <Footer />

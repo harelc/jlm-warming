@@ -4,7 +4,9 @@ import { extent } from "d3-array";
 import { Axes } from "../components/Axes";
 import { useMeasure } from "../components/useMeasure";
 import { monthlyStats, type Dataset, type Metric, METRIC_LABEL, MONTH_NAMES } from "../lib/data";
-import { polyFit, formatP } from "../lib/regression";
+import { polyFit } from "../lib/regression";
+import { trendStats, blockBootstrapCI } from "../lib/stats";
+import { StatsReadout } from "../components/StatsReadout";
 import { EMBER, INK } from "../lib/colors";
 
 interface Props {
@@ -31,6 +33,16 @@ export function TrendChart({ ds, metric, month, yearMin, yearMax, method }: Prop
     return polyFit(stats.map((s) => s.year), stats.map((s) => s.mean), method === "linear" ? 1 : 2);
   }, [stats, method]);
 
+  // robust stats + CI band on the yearly means
+  const robust = useMemo(
+    () => (stats.length >= 5 ? trendStats(stats.map((s) => s.year), stats.map((s) => s.mean)) : null),
+    [stats]
+  );
+  const ciBand = useMemo(() => {
+    if (stats.length < 5) return null;
+    return blockBootstrapCI(stats.map((s) => s.year), stats.map((s) => s.mean));
+  }, [stats]);
+
   if (stats.length < 2) return <div ref={ref} className="text-ink/60 p-8">Not enough data.</div>;
 
   const ys = stats.flatMap((s) => [s.min, s.max, s.mean]);
@@ -45,7 +57,17 @@ export function TrendChart({ ds, metric, month, yearMin, yearMax, method }: Prop
   if (fit) {
     for (let yr = yearMin; yr <= yearMax; yr += 0.25) fitPts.push(`${x(yr)},${y(fit.predict(yr))}`);
   }
-  const slopeDecade = fit?.slopePerYear !== undefined ? fit.slopePerYear * 10 : undefined;
+  // 95% CI band around the linear trend (slopes pivoted at the series centroid)
+  let bandPath = "";
+  if (ciBand && !Number.isNaN(ciBand[0])) {
+    const xm = stats.reduce((s, d) => s + d.year, 0) / stats.length;
+    const ym = stats.reduce((s, d) => s + d.mean, 0) / stats.length;
+    const at = (yr: number, slope: number) => ym + slope * (yr - xm);
+    bandPath = [
+      `${x(yearMin)},${y(at(yearMin, ciBand[0]))}`, `${x(yearMax)},${y(at(yearMax, ciBand[0]))}`,
+      `${x(yearMax)},${y(at(yearMax, ciBand[1]))}`, `${x(yearMin)},${y(at(yearMin, ciBand[1]))}`,
+    ].join(" ");
+  }
 
   return (
     <div ref={ref} className="w-full">
@@ -53,6 +75,8 @@ export function TrendChart({ ds, metric, month, yearMin, yearMax, method }: Prop
         <Axes x={x} y={y} width={width} height={height} margin={margin}
           xTicks={stats.map((s) => s.year)} xFormat={(v) => String(v)} rotateX
           yFormat={(v) => `${v}°`} yLabel={`${METRIC_LABEL[metric]} (°C)`} />
+
+        {bandPath && <polygon points={bandPath} fill={EMBER} opacity={0.12} />}
 
         {/* min–max envelope */}
         <polyline points={line("max")} fill="none" stroke="#9b2226" strokeWidth={1.2} opacity={0.5} />
@@ -77,17 +101,14 @@ export function TrendChart({ ds, metric, month, yearMin, yearMax, method }: Prop
         )}
       </svg>
 
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-1 text-xs text-ink/70">
-        <Legend swatch="#9b2226" label={`${MONTH_NAMES[month]} max`} />
-        <Legend swatch={INK} label={`Yearly mean of ${METRIC_LABEL[metric].toLowerCase()}`} />
-        <Legend swatch="#1d4e89" label={`${MONTH_NAMES[month]} min`} />
-        <Legend swatch={EMBER} label={`${method} fit on yearly means`} thick />
-        {slopeDecade !== undefined && (
-          <span className="font-mono text-ember font-semibold tnum">
-            {slopeDecade >= 0 ? "+" : ""}{slopeDecade.toFixed(2)} °C/decade
-            {fit?.pValue !== undefined && <span className="text-ink/50"> · p={formatP(fit.pValue)}</span>}
-          </span>
-        )}
+      <div className="space-y-1 px-1">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-ink/70">
+          <Legend swatch="#9b2226" label={`${MONTH_NAMES[month]} max`} />
+          <Legend swatch={INK} label={`Yearly mean of ${METRIC_LABEL[metric].toLowerCase()}`} />
+          <Legend swatch="#1d4e89" label={`${MONTH_NAMES[month]} min`} />
+          <Legend swatch={EMBER} label={`${method} fit + 95% CI`} thick />
+        </div>
+        {robust && <StatsReadout s={robust} unit="°C" />}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 // Data loading + aggregation for the Jerusalem daily temperature archive.
 
-export type Metric = "mean" | "high" | "low";
+export type Metric = "mean" | "high" | "low" | "dtr";
 
 export interface Meta {
   station: string;
@@ -37,7 +37,14 @@ export const METRIC_LABEL: Record<Metric, string> = {
   mean: "Daily mean",
   high: "Daily maximum",
   low: "Daily minimum",
+  dtr: "Diurnal range (max−min)",
 };
+
+// Resolve a metric's value for a daily row index (DTR is derived on the fly).
+export function metricValue(d: Daily, metric: Metric, i: number): number {
+  if (metric === "dtr") return d.high[i] - d.low[i];
+  return d[metric][i];
+}
 
 export async function loadDataset(): Promise<Dataset> {
   const res = await fetch(`${import.meta.env.BASE_URL}data/daily.json`);
@@ -62,14 +69,13 @@ export function points(
 ): DayPoint[] {
   const d = ds.daily;
   const out: DayPoint[] = [];
-  const vals = d[metric];
-  for (let i = 0; i < vals.length; i++) {
+  for (let i = 0; i < d.year.length; i++) {
     if (opts.yearMin !== undefined && d.year[i] < opts.yearMin) continue;
     if (opts.yearMax !== undefined && d.year[i] > opts.yearMax) continue;
     if (opts.month !== undefined && d.month[i] !== opts.month) continue;
     out.push({
       year: d.year[i], month: d.month[i], day: d.day[i],
-      doy: d.doy[i], decyear: d.decyear[i], v: vals[i],
+      doy: d.doy[i], decyear: d.decyear[i], v: metricValue(d, metric, i),
     });
   }
   return out;
@@ -100,11 +106,10 @@ function quantile(sorted: number[], q: number): number {
 export function monthlyStats(ds: Dataset, metric: Metric, month: number): MonthlyStat[] {
   const byYear = new Map<number, number[]>();
   const d = ds.daily;
-  const vals = d[metric];
-  for (let i = 0; i < vals.length; i++) {
+  for (let i = 0; i < d.year.length; i++) {
     if (d.month[i] !== month) continue;
     if (!byYear.has(d.year[i])) byYear.set(d.year[i], []);
-    byYear.get(d.year[i])!.push(vals[i]);
+    byYear.get(d.year[i])!.push(metricValue(d, metric, i));
   }
   const out: MonthlyStat[] = [];
   for (const [year, raw] of byYear) {
@@ -124,4 +129,31 @@ export function monthlyStats(ds: Dataset, metric: Metric, month: number): Monthl
 
 export function years(ds: Dataset): number[] {
   return Array.from(new Set(ds.daily.year)).sort((a, b) => a - b);
+}
+
+export interface AnnualMean { year: number; mean: number; n: number; }
+
+// Per-year mean of a metric across the whole archive.
+export function annualMeans(ds: Dataset, metric: Metric): AnnualMean[] {
+  const d = ds.daily;
+  const byYear = new Map<number, number[]>();
+  for (let i = 0; i < d.year.length; i++) {
+    if (!byYear.has(d.year[i])) byYear.set(d.year[i], []);
+    byYear.get(d.year[i])!.push(metricValue(d, metric, i));
+  }
+  return [...byYear].sort((a, b) => a[0] - b[0]).map(([year, vs]) => ({
+    year, n: vs.length, mean: vs.reduce((s, v) => s + v, 0) / vs.length,
+  }));
+}
+
+// Min/max of a metric across the whole archive (handles derived DTR).
+export function metricExtent(ds: Dataset, metric: Metric): [number, number] {
+  const d = ds.daily;
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < d.year.length; i++) {
+    const v = metricValue(d, metric, i);
+    if (v < lo) lo = v;
+    if (v > hi) hi = v;
+  }
+  return [lo, hi];
 }

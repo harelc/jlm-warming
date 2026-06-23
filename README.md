@@ -20,15 +20,20 @@ The archive was read from the station's public monthly NOAA-style reports
 
 ## Features
 
-- **Five views** of the same archive:
+- **Eight views** of the same archive:
+  - **Warming stripes** — Ed-Hawkins-style annual anomaly bars vs a 2002–2011 baseline
   - **Full record** — all ~8,900 daily readings on one continuous time axis, no folding
-  - **Yearly trend** — per-year mean / max / min for a chosen month
+  - **Yearly trend** — per-year mean / max / min for a chosen month, with a bootstrap CI band
   - **Distribution** — per-year boxplots of daily readings, with outliers
-  - **Seasonal cycle** — readings folded on day-of-year with harmonic models (pooled or per-year, adjustable harmonic count)
+  - **Distribution shift** — early vs late period KDE, showing the whole distribution slide
+  - **Seasonal cycle** — readings folded on day-of-year with harmonic models (pooled or per-year, adjustable harmonic count, arbitrary year multi-select)
   - **Anomaly** — deseasonalized residual vs. time
-- **Three metrics** — daily **mean**, daily **maximum**, daily **minimum** — each with its own models
-- **Live regression** — linear / quadratic OLS computed in-browser, with slope (°C/decade) and p-value
-- **Interactive filters** — month, year range, harmonic count, seasonal overlay
+  - **Climate indices** — hot days, very hot days, tropical nights, cool nights, longest warm spell, mean diurnal range
+- **Four metrics** — daily **mean**, **maximum**, **minimum**, and **diurnal range (max−min)** — each with its own models
+- **Robust trend statistics** — Theil–Sen slope, Mann–Kendall test, and a moving-block-bootstrap 95% CI, plus a Pettitt step-change flag — alongside linear / quadratic OLS, all computed in-browser
+- **Interactive** — month pills, year range, year multi-select, harmonic count, hover tooltips
+- **Shareable URL state** and **PNG export** of any view
+- An honest **"what this can and can't tell you"** panel (single station, UHI, inhomogeneities, autocorrelation)
 - Year-colored points on a cold→hot palette
 
 ## Tech Stack

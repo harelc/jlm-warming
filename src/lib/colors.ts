@@ -12,6 +12,15 @@ export function yearColorScale(yearMin: number, yearMax: number) {
   return scaleSequential(HEAT).domain([yearMin, hi]);
 }
 
+// Diverging cold→warm scale for anomalies (Ed Hawkins "warming stripes" style).
+const DIVERGING = interpolateRgbBasis([
+  "#08306b", "#2171b5", "#6baed6", "#deebf7", "#fee0d2", "#fb6a4a", "#cb181d", "#67000d",
+]);
+export function anomalyColor(maxAbs: number) {
+  const s = scaleSequential(DIVERGING).domain([-maxAbs, maxAbs]);
+  return (v: number) => s(v);
+}
+
 // Series colors for the trend chart (the five monthly summary stats).
 export const SERIES = {
   max: { label: "Monthly max", color: "#9b2226" },

@@ -1,9 +1,8 @@
 import { useMemo } from "react";
 import { scaleLinear } from "d3-scale";
-import { extent } from "d3-array";
 import { Axes } from "../components/Axes";
 import { useMeasure } from "../components/useMeasure";
-import { points, type Dataset, type Metric, METRIC_LABEL } from "../lib/data";
+import { points, metricExtent, type Dataset, type Metric, METRIC_LABEL } from "../lib/data";
 import { harmonicFitByDoy } from "../lib/regression";
 import { yearColorScale } from "../lib/colors";
 
@@ -61,7 +60,7 @@ export function SeasonalChart({ ds, metric, selectedYears, colorDomain, mode, K 
   const single = selectedYears.size === 1;
   // Fix the y-domain to the full metric range across ALL years so changing the
   // year selection keeps the axis stable and comparable.
-  const [ylo, yhi] = extent(ds.daily[metric]) as [number, number];
+  const [ylo, yhi] = metricExtent(ds, metric);
   const x = scaleLinear().domain([1, 366]).range([margin.left, width - margin.right]);
   const y = scaleLinear().domain([ylo - 1, yhi + 1]).range([height - margin.bottom, margin.top]).nice();
   const color = yearColorScale(colorDomain[0], colorDomain[1]);
@@ -73,9 +72,11 @@ export function SeasonalChart({ ds, metric, selectedYears, colorDomain, mode, K 
           xTicks={MONTH_STARTS} xFormat={(v) => MONTH_ABBR[MONTH_STARTS.indexOf(v)] ?? ""}
           yFormat={(v) => `${v}°`} yLabel={`${METRIC_LABEL[metric]} (°C)`} xLabel="Day of year" />
 
+        {/* points always colored by year (matching the pills); single selection
+            just gets larger, more opaque dots for readability */}
         {pts.map((p, i) => (
           <circle key={i} cx={x(p.doy)} cy={y(p.v)}
-            r={single ? 2.2 : 1.2} fill={single ? "#c2410c" : color(p.year)}
+            r={single ? 2.2 : 1.2} fill={color(p.year)}
             fillOpacity={single ? 0.55 : 0.4} />
         ))}
 
@@ -83,7 +84,7 @@ export function SeasonalChart({ ds, metric, selectedYears, colorDomain, mode, K 
           <polyline key={i}
             points={c.path.map(([d, v]) => `${x(d)},${y(v)}`).join(" ")}
             fill="none"
-            stroke={mode === "pooled" || single ? "#1c150f" : color(c.year)}
+            stroke={mode === "pooled" ? "#1c150f" : color(c.year)}
             strokeWidth={mode === "pooled" || single ? 3 : 1.5}
             opacity={mode === "pooled" || single ? 1 : 0.85} />
         ))}
