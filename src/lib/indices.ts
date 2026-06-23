@@ -3,7 +3,7 @@ import type { Dataset } from "./data";
 
 export type IndexId =
   | "hotDays" | "veryHotDays" | "tropicalNights" | "veryTropicalNights"
-  | "coolNights" | "veryColdDays" | "warmSpell" | "meanDTR";
+  | "coolNights" | "coldDays" | "veryColdDays" | "warmSpell" | "meanDTR";
 
 export interface IndexDef {
   id: IndexId;
@@ -18,6 +18,7 @@ export const INDEX_DEFS: IndexDef[] = [
   { id: "tropicalNights", label: "Tropical nights (min ≥ 20°C)", unit: "nights/yr", blurb: "Nights that never drop below 20 °C — the kind you can't sleep through." },
   { id: "veryTropicalNights", label: "Very tropical nights (min ≥ 25°C)", unit: "nights/yr", blurb: "Nights that stay at or above 25 °C — oppressively warm, and historically rare in Jerusalem." },
   { id: "coolNights", label: "Cool nights (min ≤ 8°C)", unit: "nights/yr", blurb: "Nights with a daily minimum at or below 8 °C (Jerusalem rarely freezes)." },
+  { id: "coldDays", label: "Cold days (max ≤ 15°C)", unit: "days/yr", blurb: "Days whose maximum stays at or below 15 °C — a properly cool, jacket-all-day kind of day." },
   { id: "veryColdDays", label: "Very cold days (max ≤ 10°C)", unit: "days/yr", blurb: "Days whose maximum never reaches 10 °C — the daytime stays genuinely cold." },
   { id: "warmSpell", label: "Longest warm spell (max ≥ 30°C)", unit: "days", blurb: "Longest consecutive run of days with max ≥ 30 °C." },
   { id: "meanDTR", label: "Mean diurnal range (max−min)", unit: "°C", blurb: "Average daily max-minus-min. A narrowing range = nights warming faster than days." },
@@ -47,6 +48,7 @@ export function indexSeries(ds: Dataset, id: IndexId): YearIndex[] {
       case "tropicalNights": value = e.lo.filter((v) => v >= 20).length; break;
       case "veryTropicalNights": value = e.lo.filter((v) => v >= 25).length; break;
       case "coolNights": value = e.lo.filter((v) => v <= 8).length; break;
+      case "coldDays": value = e.hi.filter((v) => v <= 15).length; break;
       case "veryColdDays": value = e.hi.filter((v) => v <= 10).length; break;
       case "warmSpell": {
         let run = 0, best = 0;

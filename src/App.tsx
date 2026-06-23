@@ -16,10 +16,11 @@ import { TimeSeriesChart } from "./charts/TimeSeriesChart";
 import { WarmingStripes } from "./charts/WarmingStripes";
 import { IndicesChart } from "./charts/IndicesChart";
 import { DistributionShift } from "./charts/DistributionShift";
+import { YearWheel } from "./charts/YearWheel";
 
 type ChartId =
   | "stripes" | "record" | "trend" | "distribution" | "distshift"
-  | "seasonal" | "anomaly" | "indices";
+  | "seasonal" | "wheel" | "anomaly" | "indices";
 
 const CHART_META: Record<ChartId, { name: string; blurb: ReactNode }> = {
   stripes: { name: "Warming stripes", blurb: <>One colored bar per year — hue is that year's <Term name="anomaly">anomaly</Term> from the 2002–2011 <Term name="climatology">baseline</Term>. Blue cooler, red warmer.</> },
@@ -28,6 +29,7 @@ const CHART_META: Record<ChartId, { name: string; blurb: ReactNode }> = {
   distribution: { name: "Distribution", blurb: <>Per-year <Term name="iqr">boxplots</Term> of every daily reading in one month; the trend line runs through the yearly means.</> },
   distshift: { name: "Distribution shift", blurb: "Early vs late period: the whole daily distribution sliding, not just the mean." },
   seasonal: { name: "Seasonal cycle", blurb: <>Daily readings folded onto day-of-year, with <Term name="harmonic">harmonic</Term> seasonal models — pooled or per-year.</> },
+  wheel: { name: "Year wheel", blurb: "The seasonal cycle wrapped onto a circle — months around the dial, temperature as radius. Early vs late period overlaid: red outside blue = warming." },
   anomaly: { name: "Anomaly", blurb: <><Term name="deseasonalized">Deseasonalized</Term>: each day minus the fitted seasonal cycle, leaving the signal versus time.</> },
   indices: { name: "Climate indices", blurb: <>Per-year counts of hot days, tropical nights, heat spells, and the <Term name="dtr">diurnal range</Term> — what warming actually feels like.</> },
 };
@@ -134,6 +136,7 @@ export default function App() {
       distribution: `Jerusalem · ${MONTH_NAMES[month]} ${m}, per-year distribution · ${range}`,
       distshift: `Jerusalem · ${m} distribution · ${yMin}–${effSplit - 1} vs ${effSplit}–${yMax}`,
       seasonal: `Jerusalem · ${m} seasonal cycle · ${selectedYears.size} years selected`,
+      wheel: `Jerusalem · ${m} year wheel · ${range}`,
       anomaly: `Jerusalem · ${m} deseasonalized anomaly · ${range}`,
       indices: `Jerusalem · ${idx} · ${range}`,
     };
@@ -286,6 +289,7 @@ export default function App() {
           {chart === "seasonal" && (
             <SeasonalChart ds={ds} metric={metric} selectedYears={selectedYears} colorDomain={colorDomain} mode={seasonalMode} K={K} />
           )}
+          {chart === "wheel" && <YearWheel ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} />}
           {chart === "anomaly" && <AnomalyChart ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} method={method} />}
           {chart === "indices" && <IndicesChart ds={ds} indexId={indexId} yearMin={yMin} yearMax={yMax} />}
         </section>
