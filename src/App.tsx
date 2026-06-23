@@ -73,6 +73,7 @@ export default function App() {
   const [seasonalOverlay, setSeasonalOverlay] = useState(true);
   const [yr, setYr] = useState<[number, number]>([init.y0 ?? 2002, init.y1 ?? 2026]);
   const [splitYear, setSplitYear] = useState<number | null>(init.sp);
+  const [copied, setCopied] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -86,16 +87,6 @@ export default function App() {
       .catch((e) => setErr(String(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // keep the URL in sync for sharing
-  useEffect(() => {
-    const p = new URLSearchParams();
-    p.set("c", chart); p.set("m", metric); p.set("r", method);
-    p.set("mo", String(month)); p.set("sm", seasonalMode); p.set("k", String(K));
-    p.set("ix", indexId); p.set("y0", String(yr[0])); p.set("y1", String(yr[1]));
-    if (splitYear !== null) p.set("sp", String(splitYear));
-    history.replaceState(null, "", `?${p.toString()}`);
-  }, [chart, metric, method, month, seasonalMode, K, indexId, yr, splitYear]);
 
   if (err) return <Centered>Couldn't load data: {err}</Centered>;
   if (!ds) return <Centered>Loading the archive…</Centered>;
@@ -113,6 +104,20 @@ export default function App() {
       next.has(y) ? next.delete(y) : next.add(y);
       return next;
     });
+  };
+
+  // build a shareable deep-link on demand (the address bar stays clean otherwise)
+  const shareLink = () => {
+    const p = new URLSearchParams();
+    p.set("c", chart); p.set("m", metric); p.set("r", method);
+    p.set("mo", String(month)); p.set("sm", seasonalMode); p.set("k", String(K));
+    p.set("ix", indexId); p.set("y0", String(yr[0])); p.set("y1", String(yr[1]));
+    if (splitYear !== null) p.set("sp", String(splitYear));
+    const url = `${location.origin}${location.pathname}?${p.toString()}`;
+    navigator.clipboard?.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    }).catch(() => {});
   };
 
   const doExport = () => {
@@ -257,10 +262,16 @@ export default function App() {
             </div>
           )}
 
-          <button onClick={doExport}
-            className="ml-auto self-end rounded-lg border border-ink/15 bg-paper/60 px-3 py-1.5 text-sm font-semibold text-ink/70 shadow-sm transition hover:bg-ink/5 hover:text-ink">
-            ↓ PNG
-          </button>
+          <div className="ml-auto flex items-end gap-2">
+            <button onClick={shareLink}
+              className="self-end rounded-lg border border-ink/15 bg-paper/60 px-3 py-1.5 text-sm font-semibold text-ink/70 shadow-sm transition hover:bg-ink/5 hover:text-ink">
+              {copied ? "✓ Copied" : "↗ Copy link"}
+            </button>
+            <button onClick={doExport}
+              className="self-end rounded-lg border border-ink/15 bg-paper/60 px-3 py-1.5 text-sm font-semibold text-ink/70 shadow-sm transition hover:bg-ink/5 hover:text-ink">
+              ↓ PNG
+            </button>
+          </div>
         </div>
 
         {/* ---------- chart card ---------- */}

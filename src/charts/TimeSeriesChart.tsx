@@ -3,8 +3,10 @@ import { scaleLinear } from "d3-scale";
 import { extent } from "d3-array";
 import { Axes } from "../components/Axes";
 import { useMeasure } from "../components/useMeasure";
-import { points, type Dataset, type Metric, METRIC_LABEL } from "../lib/data";
-import { harmonicTrendFit, formatP } from "../lib/regression";
+import { points, annualMeans, type Dataset, type Metric, METRIC_LABEL } from "../lib/data";
+import { harmonicTrendFit } from "../lib/regression";
+import { trendStats } from "../lib/stats";
+import { StatsReadout } from "../components/StatsReadout";
 import { EMBER, yearColorScale } from "../lib/colors";
 
 interface Props {
@@ -35,6 +37,12 @@ export function TimeSeriesChart({ ds, metric, yearMin, yearMax, method, showSeas
       4, method === "linear" ? 1 : 2
     );
   }, [pts, method]);
+
+  // robust trend on the metric's annual means (consistent with the other tabs)
+  const robust = useMemo(() => {
+    const am = annualMeans(ds, metric).filter((d) => d.year >= yearMin && d.year <= yearMax);
+    return am.length >= 5 ? trendStats(am.map((d) => d.year), am.map((d) => d.mean)) : null;
+  }, [ds, metric, yearMin, yearMax]);
 
   if (pts.length < 2) return <div ref={ref} className="text-ink/60 p-8">Not enough data.</div>;
 
@@ -80,22 +88,22 @@ export function TimeSeriesChart({ ds, metric, yearMin, yearMax, method, showSeas
         )}
       </svg>
 
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-1 text-xs text-ink/70">
-        <span>{pts.length.toLocaleString()} daily readings</span>
-        <span className="inline-flex items-center gap-1.5">
-          <span style={{ background: EMBER, height: 4, width: 16, borderRadius: 2 }} /> {method} trend (deseasonalized)
-        </span>
-        {showSeasonal && (
+      <div className="space-y-1 px-1">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-ink/70">
+          <span>{pts.length.toLocaleString()} daily readings</span>
           <span className="inline-flex items-center gap-1.5">
-            <span style={{ background: "#1d4e89", height: 2, width: 16 }} /> joint harmonic + trend fit
+            <span style={{ background: EMBER, height: 4, width: 16, borderRadius: 2 }} /> {method} trend (deseasonalized)
           </span>
-        )}
-        {slopeDecade !== undefined && (
-          <span className="font-mono text-ember font-semibold tnum">
-            {slopeDecade >= 0 ? "+" : ""}{slopeDecade.toFixed(2)} °C/decade
-            {fit?.pValue !== undefined && <span className="text-ink/50"> · p={formatP(fit.pValue)}</span>}
-          </span>
-        )}
+          {showSeasonal && (
+            <span className="inline-flex items-center gap-1.5">
+              <span style={{ background: "#1d4e89", height: 2, width: 16 }} /> joint harmonic + trend fit
+            </span>
+          )}
+          {slopeDecade !== undefined && (
+            <span className="text-ink/50">joint-fit trend {slopeDecade >= 0 ? "+" : ""}{slopeDecade.toFixed(2)} °C/decade</span>
+          )}
+        </div>
+        {robust && <StatsReadout s={robust} unit="°C" />}
       </div>
     </div>
   );
