@@ -52,6 +52,7 @@ function readURL() {
     indexId: (p.get("ix") as IndexId) || "hotDays",
     y0: p.has("y0") ? num("y0", 0) : null,
     y1: p.has("y1") ? num("y1", 0) : null,
+    sp: p.has("sp") ? num("sp", 0) : null,
   };
 }
 
@@ -70,6 +71,7 @@ export default function App() {
   const [indexId, setIndexId] = useState<IndexId>(init.indexId);
   const [seasonalOverlay, setSeasonalOverlay] = useState(true);
   const [yr, setYr] = useState<[number, number]>([init.y0 ?? 2002, init.y1 ?? 2026]);
+  const [splitYear, setSplitYear] = useState<number | null>(init.sp);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -90,8 +92,9 @@ export default function App() {
     p.set("c", chart); p.set("m", metric); p.set("r", method);
     p.set("mo", String(month)); p.set("sm", seasonalMode); p.set("k", String(K));
     p.set("ix", indexId); p.set("y0", String(yr[0])); p.set("y1", String(yr[1]));
+    if (splitYear !== null) p.set("sp", String(splitYear));
     history.replaceState(null, "", `?${p.toString()}`);
-  }, [chart, metric, method, month, seasonalMode, K, indexId, yr]);
+  }, [chart, metric, method, month, seasonalMode, K, indexId, yr, splitYear]);
 
   if (err) return <Centered>Couldn't load data: {err}</Centered>;
   if (!ds) return <Centered>Loading the archive…</Centered>;
@@ -101,6 +104,7 @@ export default function App() {
   const colorDomain: [number, number] = [allYears[0], allYears[allYears.length - 1]];
   const colorScale = yearColorScale(colorDomain[0], colorDomain[1]);
   const baseline: [number, number] = [allYears[0], allYears[Math.min(9, allYears.length - 1)]];
+  const effSplit = Math.min(Math.max(splitYear ?? Math.round((yMin + yMax) / 2), yMin + 1), yMax);
 
   const toggleYear = (y: number) => {
     setSelectedYears((prev) => {
@@ -112,7 +116,13 @@ export default function App() {
 
   const doExport = () => {
     const svg = cardRef.current?.querySelector("svg");
-    if (svg) exportSvgPng(svg as SVGSVGElement, `jlm-${chart}-${metric}.png`);
+    if (!svg) return;
+    const metricLabel = METRIC_OPTS.find((o) => o.value === metric)?.label ?? metric;
+    const idxLabel = INDEX_DEFS.find((d) => d.id === indexId)?.label ?? "";
+    const caption = chart === "indices"
+      ? `Jerusalem · ${idxLabel}`
+      : `Jerusalem · ${CHART_META[chart].name} · ${metricLabel}`;
+    exportSvgPng(svg as SVGSVGElement, `jlm-${chart}-${metric}.png`, caption);
   };
 
   const showMonth = chart === "trend" || chart === "distribution";
@@ -213,6 +223,16 @@ export default function App() {
             </label>
           )}
 
+          {chart === "distshift" && (
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink/45">
+                Split: <span className="font-mono text-ink/70">early &lt; {effSplit} ≤ late</span>
+              </span>
+              <input type="range" min={yMin + 1} max={yMax} value={effSplit}
+                onChange={(e) => setSplitYear(Number(e.target.value))} className="w-40" />
+            </div>
+          )}
+
           {showRange && (
             <div className="flex flex-col gap-1">
               <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink/45">
@@ -244,7 +264,7 @@ export default function App() {
           {chart === "record" && <TimeSeriesChart ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} method={method} showSeasonal={seasonalOverlay} />}
           {chart === "trend" && <TrendChart ds={ds} metric={metric} month={month} yearMin={yMin} yearMax={yMax} method={method} />}
           {chart === "distribution" && <BoxplotChart ds={ds} metric={metric} month={month} yearMin={yMin} yearMax={yMax} method={method} />}
-          {chart === "distshift" && <DistributionShift ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} />}
+          {chart === "distshift" && <DistributionShift ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} splitYear={effSplit} />}
           {chart === "seasonal" && (
             <SeasonalChart ds={ds} metric={metric} selectedYears={selectedYears} colorDomain={colorDomain} mode={seasonalMode} K={K} />
           )}

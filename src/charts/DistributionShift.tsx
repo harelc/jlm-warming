@@ -9,6 +9,7 @@ interface Props {
   metric: Metric;
   yearMin: number;
   yearMax: number;
+  splitYear: number; // first year of the "late" period
 }
 
 function gaussianKDE(samples: number[], grid: number[]): number[] {
@@ -26,16 +27,15 @@ function gaussianKDE(samples: number[], grid: number[]): number[] {
 
 // Compare the daily-value distribution of an early vs a late slice of the
 // selected range — shows the WHOLE distribution sliding, not just the mean.
-export function DistributionShift({ ds, metric, yearMin, yearMax }: Props) {
+export function DistributionShift({ ds, metric, yearMin, yearMax, splitYear }: Props) {
   const { ref, width } = useMeasure<HTMLDivElement>();
   const height = 460;
   const margin = { top: 20, right: 24, bottom: 54, left: 52 };
 
   const model = useMemo(() => {
-    const span = yearMax - yearMin;
-    const cut = Math.floor(span / 2);
-    const earlyMax = yearMin + Math.max(0, Math.min(cut, span - 1));
-    const lateMin = yearMax - Math.max(0, Math.min(cut, span - 1));
+    // "early" = years strictly before the split; "late" = split year onward
+    const split = Math.min(Math.max(splitYear, yearMin + 1), yearMax);
+    const earlyMax = split - 1, lateMin = split;
     const early = points(ds, metric, { yearMin, yearMax: earlyMax }).map((p) => p.v);
     const late = points(ds, metric, { yearMin: lateMin, yearMax }).map((p) => p.v);
     if (early.length < 20 || late.length < 20) return null;
