@@ -132,6 +132,58 @@ export function harmonicFitByDoy(doys: number[], ys: number[], K: number) {
   return olsBasis(doys, ys, basis);
 }
 
+// JOINT harmonic + polynomial-trend fit over the whole record, fitting the
+// trend and seasonal terms simultaneously (the statistically correct way —
+// the trend is unbiased even when a year has uneven seasonal coverage).
+//   y ~ b0 + Σ_{d=1..degree} b_d·(t−t̄)^d + Σ_{k=1..K} [sin/cos(kω·doy)]
+export interface JointFit {
+  predict: (t: number, doy: number) => number; // full model
+  trendOnly: (t: number) => number;            // deseasonalized trend component
+  slopePerYear: number;                          // linear trend coefficient
+  slopeSE: number;
+  pValue: number;
+}
+export function harmonicTrendFit(
+  t: number[], doy: number[], y: number[], K: number, degree = 1
+): JointFit {
+  const n = t.length;
+  const tbar = t.reduce((s, v) => s + v, 0) / n;
+  const row = (ti: number, di: number) => {
+    const r = [1];
+    for (let d = 1; d <= degree; d++) r.push((ti - tbar) ** d);
+    for (let k = 1; k <= K; k++) { r.push(Math.sin(k * OMEGA * di)); r.push(Math.cos(k * OMEGA * di)); }
+    return r;
+  };
+  const X = t.map((ti, i) => row(ti, doy[i]));
+  const p = X[0].length;
+  const XtX = Array.from({ length: p }, () => new Array(p).fill(0));
+  const Xty = new Array(p).fill(0);
+  for (let i = 0; i < n; i++)
+    for (let a = 0; a < p; a++) {
+      Xty[a] += X[i][a] * y[i];
+      for (let b = 0; b < p; b++) XtX[a][b] += X[i][a] * X[i][b];
+    }
+  const beta = solveSym(XtX, Xty);
+  const dot = (r: number[]) => r.reduce((s, f, k) => s + f * beta[k], 0);
+  let ss = 0;
+  for (let i = 0; i < n; i++) ss += (y[i] - dot(X[i])) ** 2;
+  const sigma2 = ss / (n - p);
+  const inv = invert(XtX);
+  const se1 = Math.sqrt(sigma2 * inv[1][1]);
+  const pVal = 2 * (1 - studentTCdf(Math.abs(beta[1] / se1), n - p));
+  const trendOnly = (ti: number) => {
+    let s = beta[0];
+    for (let d = 1; d <= degree; d++) s += beta[d] * (ti - tbar) ** d;
+    return s;
+  };
+  return { predict: (ti, di) => dot(row(ti, di)), trendOnly, slopePerYear: beta[1], slopeSE: se1, pValue: pVal };
+}
+
+// shared symmetric solver (alias of the private `solve`)
+function solveSym(A: number[][], b: number[]): number[] {
+  return solve(A, b);
+}
+
 // matrix inverse via Gauss-Jordan (small matrices)
 function invert(A: number[][]): number[][] {
   const n = A.length;

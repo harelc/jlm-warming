@@ -142,7 +142,7 @@ export default function App() {
     <div className="relative z-10 min-h-screen">
       {/* ---------- header ---------- */}
       <header className="mx-auto max-w-6xl px-5 pt-12 pb-6">
-        <div className="rise text-[11px] font-semibold uppercase tracking-[0.28em] text-ember">
+        <div className="rise text-[10px] font-semibold uppercase tracking-[0.16em] text-ember sm:text-[11px] sm:tracking-[0.28em]">
           Jerusalem · {ds.meta.year_min}–{ds.meta.year_max} · {ds.meta.n_obs.toLocaleString()} daily readings
         </div>
         <h1 className="rise font-display text-5xl font-black leading-[0.95] tracking-tight text-ink sm:text-7xl"
