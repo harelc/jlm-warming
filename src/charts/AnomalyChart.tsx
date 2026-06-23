@@ -103,7 +103,7 @@ export function AnomalyChart({ ds, metric, yearMin, yearMax, method }: Props) {
         ))}
         {/* monthly mean anomaly — finer detail between daily noise and the annual line */}
         <polyline points={monthly.map((d) => `${x(d.t)},${y(d.a)}`).join(" ")}
-          fill="none" stroke="#3b6ea5" strokeWidth={1} opacity={0.6} />
+          fill="none" stroke="#3b6ea5" strokeWidth={1.8} opacity={0.85} />
         <polyline points={annual.map((d) => `${x(d.year + 0.5)},${y(d.a)}`).join(" ")}
           fill="none" stroke="#2e7d32" strokeWidth={1.8} />
         {annual.map((d) => (
