@@ -55,6 +55,7 @@ export function SeasonalChart({ ds, metric, yearMin, yearMax, mode, K }: Props) 
 
   if (pts.length < 2) return <div ref={ref} className="text-ink/60 p-8">Not enough data.</div>;
 
+  const single = yearMin === yearMax;
   const [ylo, yhi] = extent(pts, (p) => p.v) as [number, number];
   const x = scaleLinear().domain([1, 366]).range([margin.left, width - margin.right]);
   const y = scaleLinear().domain([ylo - 1, yhi + 1]).range([height - margin.bottom, margin.top]).nice();
@@ -68,24 +69,32 @@ export function SeasonalChart({ ds, metric, yearMin, yearMax, mode, K }: Props) 
           yFormat={(v) => `${v}°`} yLabel={`${METRIC_LABEL[metric]} (°C)`} xLabel="Day of year" />
 
         {pts.map((p, i) => (
-          <circle key={i} cx={x(p.doy)} cy={y(p.v)} r={1.2} fill={color(p.year)} fillOpacity={0.4} />
+          <circle key={i} cx={x(p.doy)} cy={y(p.v)}
+            r={single ? 2.2 : 1.2} fill={single ? "#c2410c" : color(p.year)}
+            fillOpacity={single ? 0.55 : 0.4} />
         ))}
 
         {curves.map((c, i) => (
           <polyline key={i}
             points={c.path.map(([d, v]) => `${x(d)},${y(v)}`).join(" ")}
             fill="none"
-            stroke={mode === "pooled" ? "#1c150f" : color(c.year)}
-            strokeWidth={mode === "pooled" ? 3 : 1.5}
-            opacity={mode === "pooled" ? 1 : 0.85} />
+            stroke={mode === "pooled" || single ? "#1c150f" : color(c.year)}
+            strokeWidth={mode === "pooled" || single ? 3 : 1.5}
+            opacity={mode === "pooled" || single ? 1 : 0.85} />
         ))}
       </svg>
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-1 text-xs text-ink/70">
-        <span>{pts.length.toLocaleString()} readings, colored by year (blue = older → red = recent)</span>
-        <span>{mode === "pooled"
-          ? `One pooled ${K}-harmonic seasonal cycle`
-          : `${curves.length} independent ${K}-harmonic fits, one per year`}</span>
+        {single ? (
+          <span>{pts.length.toLocaleString()} daily readings in {yearMin}, with its {K}-harmonic seasonal fit</span>
+        ) : (
+          <>
+            <span>{pts.length.toLocaleString()} readings, colored by year (blue = older → red = recent)</span>
+            <span>{mode === "pooled"
+              ? `One pooled ${K}-harmonic seasonal cycle`
+              : `${curves.length} independent ${K}-harmonic fits, one per year`}</span>
+          </>
+        )}
       </div>
     </div>
   );

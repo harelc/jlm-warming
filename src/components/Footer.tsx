@@ -51,12 +51,6 @@ export function Footer() {
         <span className="mx-2 hidden sm:inline">|</span>
         <a href="https://github.com/harelc/jlm-warming" target="_blank" rel="noopener noreferrer"
           className="hidden hover:text-ink/70 sm:inline">Source Code</a>
-        <span className="mx-2">|</span>
-        <a href="https://www.buymeacoffee.com/harelc" target="_blank" rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-amber-600 hover:text-amber-500">
-          <img src="https://cdn.buymeacoffee.com/buttons/bmc-new-btn-logo.svg" alt="" className="h-3.5 w-3.5" />
-          Buy me a coffee
-        </a>
         {count !== null && (
           <>
             <span className="mx-2">|</span>

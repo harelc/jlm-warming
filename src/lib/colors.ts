@@ -7,7 +7,9 @@ const HEAT = interpolateRgbBasis([
 ]);
 
 export function yearColorScale(yearMin: number, yearMax: number) {
-  return scaleSequential(HEAT).domain([yearMin, yearMax]);
+  // guard against a degenerate domain (single year) which yields invisible fills
+  const hi = yearMax === yearMin ? yearMin + 1 : yearMax;
+  return scaleSequential(HEAT).domain([yearMin, hi]);
 }
 
 // Series colors for the trend chart (the five monthly summary stats).

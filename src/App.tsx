@@ -27,6 +27,7 @@ export default function App() {
   const [method, setMethod] = useState<"linear" | "quadratic">("linear");
   const [month, setMonth] = useState(6);
   const [seasonalMode, setSeasonalMode] = useState<"pooled" | "peryear">("peryear");
+  const [focusYear, setFocusYear] = useState<number | "all">("all");
   const [K, setK] = useState(2);
   const [seasonalOverlay, setSeasonalOverlay] = useState(true);
   const [yr, setYr] = useState<[number, number]>([2002, 2026]);
@@ -42,6 +43,13 @@ export default function App() {
 
   const allYears = years(ds);
   const [yMin, yMax] = yr;
+
+  // step the seasonal focus-year through: all → first → … → last → all
+  const stepFocus = (dir: number) => {
+    if (focusYear === "all") { setFocusYear(dir > 0 ? allYears[0] : allYears[allYears.length - 1]); return; }
+    const i = allYears.indexOf(focusYear) + dir;
+    setFocusYear(i < 0 || i >= allYears.length ? "all" : allYears[i]);
+  };
 
   return (
     <div className="relative z-10 min-h-screen">
@@ -107,8 +115,26 @@ export default function App() {
 
           {chart === "seasonal" && (
             <>
-              <Segmented label="Seasonal model" value={seasonalMode} onChange={setSeasonalMode}
-                options={[{ value: "pooled", label: "Pooled" }, { value: "peryear", label: "Per year" }]} />
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink/45">Focus year</span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => stepFocus(-1)}
+                    className="rounded-md border border-ink/15 bg-paper/60 px-2 py-1.5 text-sm text-ink/70 shadow-sm hover:bg-ink/5"
+                    aria-label="previous year">‹</button>
+                  <select value={String(focusYear)} onChange={(e) => setFocusYear(e.target.value === "all" ? "all" : Number(e.target.value))}
+                    className="rounded-lg border border-ink/15 bg-paper/60 px-3 py-1.5 text-sm font-medium text-ink shadow-sm">
+                    <option value="all">All years</option>
+                    {allYears.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                  <button onClick={() => stepFocus(1)}
+                    className="rounded-md border border-ink/15 bg-paper/60 px-2 py-1.5 text-sm text-ink/70 shadow-sm hover:bg-ink/5"
+                    aria-label="next year">›</button>
+                </div>
+              </div>
+              {focusYear === "all" && (
+                <Segmented label="Seasonal model" value={seasonalMode} onChange={setSeasonalMode}
+                  options={[{ value: "pooled", label: "Pooled" }, { value: "peryear", label: "Per year" }]} />
+              )}
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink/45">
                   Harmonics: {K}
@@ -127,8 +153,8 @@ export default function App() {
             </label>
           )}
 
-          {/* year range */}
-          <div className="flex flex-col gap-1">
+          {/* year range — hidden in seasonal view when a single focus year is active */}
+          <div className={`flex flex-col gap-1 ${chart === "seasonal" && focusYear !== "all" ? "hidden" : ""}`}>
             <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink/45">
               Years: <span className="font-mono text-ink/70">{yMin}–{yMax}</span>
             </span>
@@ -151,7 +177,12 @@ export default function App() {
           {chart === "record" && <TimeSeriesChart ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} method={method} showSeasonal={seasonalOverlay} />}
           {chart === "trend" && <TrendChart ds={ds} metric={metric} month={month} yearMin={yMin} yearMax={yMax} method={method} />}
           {chart === "distribution" && <BoxplotChart ds={ds} metric={metric} month={month} yearMin={yMin} yearMax={yMax} method={method} />}
-          {chart === "seasonal" && <SeasonalChart ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} mode={seasonalMode} K={K} />}
+          {chart === "seasonal" && (
+            <SeasonalChart ds={ds} metric={metric}
+              yearMin={focusYear === "all" ? yMin : focusYear}
+              yearMax={focusYear === "all" ? yMax : focusYear}
+              mode={focusYear === "all" ? seasonalMode : "peryear"} K={K} />
+          )}
           {chart === "anomaly" && <AnomalyChart ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} method={method} />}
         </section>
 
