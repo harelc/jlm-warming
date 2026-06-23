@@ -1,0 +1,27 @@
+{
+    "dailySummary": [],
+    "monthSummary": [
+        {
+            "MeanTemp": null,
+            "highTemp": null,
+            "MinTemp": null,
+            "AvgWind": null,
+            "HighWind": null,
+            "DomDir": null,
+            "highTempDate": null,
+            "lowTempDate": null,
+            "rain": 0
+        }
+    ],
+    "rainSummary": {
+        "daysOfrain": {
+            "rdays": 0
+        },
+        "daysOfrain2": {
+            "rdays": 0
+        },
+        "daysOfrain20": {
+            "rdays": 0
+        }
+    }
+}
