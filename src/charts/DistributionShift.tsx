@@ -52,7 +52,7 @@ export function DistributionShift({ ds, metric, yearMin, yearMax, splitYear }: P
       labelE: `${yearMin}–${earlyMax}`, labelL: `${lateMin}–${yearMax}`,
       dmax: Math.max(...de, ...dl),
     };
-  }, [ds, metric, yearMin, yearMax]);
+  }, [ds, metric, yearMin, yearMax, splitYear]);
 
   if (!model) return <div ref={ref} className="text-ink/60 p-8">Widen the year range to compare periods.</div>;
 
