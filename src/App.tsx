@@ -146,24 +146,21 @@ export default function App() {
 
   return (
     <div className="relative z-10 min-h-screen">
-      {/* ---------- header ---------- */}
-      <header className="mx-auto max-w-6xl px-5 pt-12 pb-6">
-        <div className="rise text-[10px] font-semibold uppercase tracking-[0.16em] text-ember sm:text-[11px] sm:tracking-[0.28em]">
-          Jerusalem · {ds.meta.year_min}–{ds.meta.year_max} · {ds.meta.n_obs.toLocaleString()} daily readings
+      {/* ---------- header (compact) ---------- */}
+      <header className="mx-auto max-w-6xl px-5 pt-6 pb-3">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+          <h1 className="rise font-display text-3xl font-black tracking-tight text-ink sm:text-4xl">
+            Is Jerusalem <span className="hl">getting hotter?</span>
+          </h1>
+          <span className="rise text-[11px] font-semibold uppercase tracking-[0.18em] text-ember" style={{ animationDelay: "0.05s" }}>
+            {ds.meta.year_min}–{ds.meta.year_max} · {ds.meta.n_obs.toLocaleString()} daily readings
+          </span>
         </div>
-        <h1 className="rise font-display text-5xl font-black leading-[0.95] tracking-tight text-ink sm:text-7xl"
-          style={{ animationDelay: "0.05s" }}>
-          Is Jerusalem<br /><span className="hl">getting hotter?</span>
-        </h1>
-        <p className="rise mt-5 max-w-2xl font-display text-lg italic text-ink/70" style={{ animationDelay: "0.12s" }}>
-          A quarter-century of rooftop temperature measurements, sliced every way I could think of —
-          switch the metric, the month, the years, and the method, and decide for yourself.
-        </p>
-        <p className="rise mt-3 text-sm text-ink/60" style={{ animationDelay: "0.18s" }}>
-          Measurements by the{" "}
+        <p className="rise mt-1.5 text-sm text-ink/60" style={{ animationDelay: "0.1s" }}>
+          A quarter-century from the{" "}
           <a href="https://www.02ws.co.il" target="_blank" rel="noopener noreferrer"
             className="font-heb font-bold text-ember hover:underline">ירושמיים</a>{" "}
-          (<a href="https://www.02ws.co.il" target="_blank" rel="noopener noreferrer" className="font-semibold text-ink hover:underline">02ws.co.il</a>) weather station.
+          (<a href="https://www.02ws.co.il" target="_blank" rel="noopener noreferrer" className="font-semibold text-ink hover:underline">02ws.co.il</a>) rooftop station — switch the metric, month, years and method, and decide for yourself.
         </p>
       </header>
 
