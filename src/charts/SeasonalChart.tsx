@@ -17,6 +17,8 @@ interface Props {
   smoother: "harmonic" | "moving";
   K: number;       // harmonic count
   window: number;  // moving-average window in days
+  dotSize: number;
+  dotOpacity: number;
 }
 
 const MONTH_STARTS = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
@@ -50,7 +52,7 @@ function movingMean(doy: number[], v: number[], W: number): [number, number][] {
   return out;
 }
 
-export function SeasonalChart({ ds, metric, selectedYears, colorDomain, mode, smoother, K, window }: Props) {
+export function SeasonalChart({ ds, metric, selectedYears, colorDomain, mode, smoother, K, window, dotSize, dotOpacity }: Props) {
   const { ref, width } = useMeasure<HTMLDivElement>();
   const { setZoomRef, transform, reset, zoomed } = useZoom();
   const height = 480;
@@ -120,8 +122,8 @@ export function SeasonalChart({ ds, metric, selectedYears, colorDomain, mode, sm
               just gets larger, more opaque dots for readability */}
           {pts.map((p, i) => (
             <circle key={i} cx={x(p.doy)} cy={y(p.v)}
-              r={single ? 2.2 : 1.2} fill={color(p.year)}
-              fillOpacity={single ? 0.55 : 0.4} />
+              r={single ? dotSize + 1 : dotSize} fill={color(p.year)}
+              fillOpacity={dotOpacity} />
           ))}
 
           {curves.map((c, i) => (

@@ -17,10 +17,12 @@ interface Props {
   yearMax: number;
   method: "linear" | "quadratic";
   showSeasonal: boolean; // overlay the pooled harmonic seasonal model riding the trend
+  dotSize: number;
+  dotOpacity: number;
 }
 
 // The raw record: every daily reading on a continuous time axis. No folding.
-export function TimeSeriesChart({ ds, metric, yearMin, yearMax, method, showSeasonal }: Props) {
+export function TimeSeriesChart({ ds, metric, yearMin, yearMax, method, showSeasonal, dotSize, dotOpacity }: Props) {
   const { ref, width } = useMeasure<HTMLDivElement>();
   const { setZoomRef, transform, reset, zoomed } = useZoom();
   const height = 480;
@@ -95,7 +97,7 @@ export function TimeSeriesChart({ ds, metric, yearMin, yearMax, method, showSeas
         <g clipPath="url(#clip-rec)">
           {bandPath && <polygon points={bandPath} fill={EMBER} opacity={0.12} />}
           {pts.map((p, i) => (
-            <circle key={i} cx={x(p.decyear)} cy={y(p.v)} r={1.3} fill={color(p.year)} fillOpacity={0.5} />
+            <circle key={i} cx={x(p.decyear)} cy={y(p.v)} r={dotSize} fill={color(p.year)} fillOpacity={dotOpacity} />
           ))}
           {showSeasonal && seasonalPts.length > 0 && (
             <polyline points={seasonalPts.join(" ")} fill="none" stroke="#1d4e89" strokeWidth={1} opacity={0.7} />

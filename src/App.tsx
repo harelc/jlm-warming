@@ -55,6 +55,8 @@ function readURL() {
     K: num("k", 2),
     smoother: (p.get("sw") as "harmonic" | "moving") || "harmonic",
     win: num("win", 15),
+    ps: num("ps", 1.4),
+    po: num("po", 0.5),
     indexId: (p.get("ix") as IndexId) || "hotDays",
     y0: p.has("y0") ? num("y0", 0) : null,
     y1: p.has("y1") ? num("y1", 0) : null,
@@ -76,6 +78,8 @@ export default function App() {
   const [K, setK] = useState(init.K);
   const [smoother, setSmoother] = useState<"harmonic" | "moving">(init.smoother);
   const [win, setWin] = useState(init.win);
+  const [dotSize, setDotSize] = useState(init.ps);
+  const [dotOpacity, setDotOpacity] = useState(init.po);
   const [indexId, setIndexId] = useState<IndexId>(init.indexId);
   const [seasonalOverlay, setSeasonalOverlay] = useState(true);
   const [yr, setYr] = useState<[number, number]>([init.y0 ?? 2002, init.y1 ?? 2026]);
@@ -120,6 +124,7 @@ export default function App() {
     p.set("c", chart); p.set("m", metric); p.set("r", method);
     p.set("mo", String(month)); p.set("sm", seasonalMode); p.set("k", String(K));
     p.set("sw", smoother); p.set("win", String(win));
+    p.set("ps", String(dotSize)); p.set("po", String(dotOpacity));
     p.set("ix", indexId); p.set("y0", String(yr[0])); p.set("y1", String(yr[1]));
     if (splitYear !== null) p.set("sp", String(splitYear));
     const url = `${location.origin}${location.pathname}?${p.toString()}`;
@@ -254,6 +259,21 @@ export default function App() {
             </label>
           )}
 
+          {(chart === "record" || chart === "seasonal") && (
+            <>
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink/45">Point size</span>
+                <input type="range" min={0.5} max={4} step={0.1} value={dotSize}
+                  onChange={(e) => setDotSize(Number(e.target.value))} className="w-24" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink/45">Opacity</span>
+                <input type="range" min={0.05} max={1} step={0.05} value={dotOpacity}
+                  onChange={(e) => setDotOpacity(Number(e.target.value))} className="w-24" />
+              </div>
+            </>
+          )}
+
           {chart === "distshift" && (
             <div className="flex flex-col gap-1">
               <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink/45">
@@ -302,12 +322,12 @@ export default function App() {
           </div>
 
           {chart === "stripes" && <WarmingStripes ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} baseline={baseline} />}
-          {chart === "record" && <TimeSeriesChart ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} method={method} showSeasonal={seasonalOverlay} />}
+          {chart === "record" && <TimeSeriesChart ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} method={method} showSeasonal={seasonalOverlay} dotSize={dotSize} dotOpacity={dotOpacity} />}
           {chart === "trend" && <TrendChart ds={ds} metric={metric} month={month} yearMin={yMin} yearMax={yMax} method={method} />}
           {chart === "distribution" && <BoxplotChart ds={ds} metric={metric} month={month} yearMin={yMin} yearMax={yMax} method={method} />}
           {chart === "distshift" && <DistributionShift ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} splitYear={effSplit} />}
           {chart === "seasonal" && (
-            <SeasonalChart ds={ds} metric={metric} selectedYears={selectedYears} colorDomain={colorDomain} mode={seasonalMode} smoother={smoother} K={K} window={win} />
+            <SeasonalChart ds={ds} metric={metric} selectedYears={selectedYears} colorDomain={colorDomain} mode={seasonalMode} smoother={smoother} K={K} window={win} dotSize={dotSize} dotOpacity={dotOpacity} />
           )}
           {chart === "wheel" && <YearWheel ds={ds} metric={metric} selectedYears={selectedYears} colorDomain={colorDomain} />}
           {chart === "anomaly" && <AnomalyChart ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} method={method} />}
