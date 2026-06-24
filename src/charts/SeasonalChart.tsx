@@ -20,16 +20,29 @@ interface Props {
 const MONTH_STARTS = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
 const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-// Circular (day-of-year wraps) moving-average over a ±window/2 day window.
-// Returns [doy, value] for each day that has data within the window.
-function circularMovingMean(doy: number[], v: number[], W: number): [number, number][] {
+// Moving-average over a ±window/2 day window. Wraps day-of-year (Dec↔Jan) ONLY
+// when the data covers the full year; for a partial year (e.g. an in-progress
+// 2026) it clamps to the observed range with a non-wrapping window — so the
+// curve neither bleeds January into December nor spills past the last day.
+function movingMean(doy: number[], v: number[], W: number): [number, number][] {
   const sum = new Array(367).fill(0), cnt = new Array(367).fill(0);
-  for (let i = 0; i < doy.length; i++) { const d = Math.round(doy[i]); sum[d] += v[i]; cnt[d]++; }
+  let minD = 367, maxD = 0;
+  for (let i = 0; i < doy.length; i++) {
+    const d = Math.round(doy[i]); sum[d] += v[i]; cnt[d]++;
+    if (d < minD) minD = d; if (d > maxD) maxD = d;
+  }
   const half = Math.floor(W / 2);
+  const full = minD <= 1 + half && maxD >= 366 - half; // data reaches both ends → seam is real
+  const lo = full ? 1 : minD, hi = full ? 366 : maxD;
   const out: [number, number][] = [];
-  for (let d = 1; d <= 366; d++) {
+  for (let d = lo; d <= hi; d++) {
     let s = 0, c = 0;
-    for (let k = -half; k <= half; k++) { const dd = ((d - 1 + k) % 366 + 366) % 366 + 1; s += sum[dd]; c += cnt[dd]; }
+    for (let k = -half; k <= half; k++) {
+      let dd = d + k;
+      if (full) dd = ((dd - 1) % 366 + 366) % 366 + 1;
+      else if (dd < 1 || dd > 366) continue; // clamp, don't wrap
+      s += sum[dd]; c += cnt[dd];
+    }
     if (c > 0) out.push([d, s / c]);
   }
   return out;
@@ -48,7 +61,7 @@ export function SeasonalChart({ ds, metric, selectedYears, colorDomain, mode, sm
   const curves = useMemo(() => {
     if (pts.length < 10) return [];
     const makeCurve = (doy: number[], v: number[], full: boolean): [number, number][] => {
-      if (smoother === "moving") return circularMovingMean(doy, v, window);
+      if (smoother === "moving") return movingMean(doy, v, window);
       if (doy.length < 2 * K + 1) return [];
       const fit = harmonicFitByDoy(doy, v, K);
       const path: [number, number][] = [];
