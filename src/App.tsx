@@ -259,7 +259,7 @@ export default function App() {
             </label>
           )}
 
-          {(chart === "record" || chart === "seasonal") && (
+          {(chart === "record" || chart === "seasonal" || chart === "anomaly") && (
             <>
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink/45">Point size</span>
@@ -330,7 +330,7 @@ export default function App() {
             <SeasonalChart ds={ds} metric={metric} selectedYears={selectedYears} colorDomain={colorDomain} mode={seasonalMode} smoother={smoother} K={K} window={win} dotSize={dotSize} dotOpacity={dotOpacity} />
           )}
           {chart === "wheel" && <YearWheel ds={ds} metric={metric} selectedYears={selectedYears} colorDomain={colorDomain} />}
-          {chart === "anomaly" && <AnomalyChart ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} method={method} />}
+          {chart === "anomaly" && <AnomalyChart ds={ds} metric={metric} yearMin={yMin} yearMax={yMax} method={method} dotSize={dotSize} dotOpacity={dotOpacity} />}
           {chart === "indices" && <IndicesChart ds={ds} indexId={indexId} yearMin={yMin} yearMax={yMax} />}
         </section>
 
