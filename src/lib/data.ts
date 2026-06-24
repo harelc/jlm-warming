@@ -131,6 +131,23 @@ export function years(ds: Dataset): number[] {
   return Array.from(new Set(ds.daily.year)).sort((a, b) => a - b);
 }
 
+export interface DayRow { day: number; date: string; mean: number; high: number; low: number; }
+
+// Raw daily rows for one month-year, sorted by day (for the data inspector).
+export function dailyForMonth(ds: Dataset, year: number, month: number): DayRow[] {
+  const d = ds.daily;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const out: DayRow[] = [];
+  for (let i = 0; i < d.year.length; i++) {
+    if (d.year[i] !== year || d.month[i] !== month) continue;
+    out.push({
+      day: d.day[i], date: `${year}-${pad(month)}-${pad(d.day[i])}`,
+      mean: d.mean[i], high: d.high[i], low: d.low[i],
+    });
+  }
+  return out.sort((a, b) => a.day - b.day);
+}
+
 export interface AnnualMean { year: number; mean: number; n: number; }
 
 // Per-year mean of a metric across the whole archive.

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { loadDataset, years, MONTH_NAMES, METRIC_LABEL, type Dataset, type Metric } from "./lib/data";
 import { Term } from "./components/Term";
+import { RawDataModal } from "./components/RawDataModal";
 import { Segmented } from "./components/Segmented";
 import { MonthPills } from "./components/MonthPills";
 import { YearPills } from "./components/YearPills";
@@ -80,6 +81,7 @@ export default function App() {
   const [yr, setYr] = useState<[number, number]>([init.y0 ?? 2002, init.y1 ?? 2026]);
   const [splitYear, setSplitYear] = useState<number | null>(init.sp);
   const [copied, setCopied] = useState(false);
+  const [rawOpen, setRawOpen] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -277,6 +279,10 @@ export default function App() {
           )}
 
           <div className="ml-auto flex items-end gap-2">
+            <button onClick={() => setRawOpen(true)}
+              className="self-end rounded-lg border border-ink/15 bg-paper/60 px-3 py-1.5 text-sm font-semibold text-ink/70 shadow-sm transition hover:bg-ink/5 hover:text-ink">
+              ▦ Daily data
+            </button>
             <button onClick={shareLink}
               className="self-end rounded-lg border border-ink/15 bg-paper/60 px-3 py-1.5 text-sm font-semibold text-ink/70 shadow-sm transition hover:bg-ink/5 hover:text-ink">
               {copied ? "✓ Copied" : "↗ Copy link"}
@@ -322,6 +328,10 @@ export default function App() {
           </ul>
         </details>
       </main>
+
+      {rawOpen && (
+        <RawDataModal ds={ds} initialMonth={month} initialYear={Math.min(yMax, ds.meta.year_max)} onClose={() => setRawOpen(false)} />
+      )}
 
       <Footer />
     </div>
