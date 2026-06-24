@@ -6,3 +6,6 @@ dist
 
 # Local Netlify folder
 .netlify
+
+# TS build cache
+*.tsbuildinfo
