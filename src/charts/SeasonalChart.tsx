@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { scaleLinear } from "d3-scale";
 import { Axes } from "../components/Axes";
 import { useMeasure } from "../components/useMeasure";
@@ -52,8 +52,7 @@ function movingMean(doy: number[], v: number[], W: number): [number, number][] {
 
 export function SeasonalChart({ ds, metric, selectedYears, colorDomain, mode, smoother, K, window }: Props) {
   const { ref, width } = useMeasure<HTMLDivElement>();
-  const svgRef = useRef<SVGSVGElement>(null);
-  const { transform, reset, zoomed } = useZoom(svgRef);
+  const { setZoomRef, transform, reset, zoomed } = useZoom();
   const height = 480;
   const margin = { top: 20, right: 24, bottom: 48, left: 52 };
 
@@ -102,12 +101,12 @@ export function SeasonalChart({ ds, metric, selectedYears, colorDomain, mode, sm
 
   return (
     <div ref={ref} className="relative w-full">
-      <svg ref={svgRef} width={width} height={height} role="img"
+      <svg ref={setZoomRef} width={width} height={height} role="img"
         className="cursor-grab touch-none select-none active:cursor-grabbing">
         <defs>
           <clipPath id="clip-seasonal">
-            <rect x={margin.left} y={margin.top} width={width - margin.left - margin.right}
-              height={height - margin.top - margin.bottom} />
+            <rect x={margin.left} y={margin.top} width={Math.max(0, width - margin.left - margin.right)}
+              height={Math.max(0, height - margin.top - margin.bottom)} />
           </clipPath>
         </defs>
         <Axes x={x} y={y} width={width} height={height} margin={margin}
